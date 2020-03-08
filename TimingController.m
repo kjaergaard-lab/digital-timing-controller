@@ -44,6 +44,16 @@ classdef TimingController < handle
             end
         end
         
+        function ch = findBit(tc,bit)
+            ch = [];
+            for nn=1:tc.NUM_CHANNELS
+                if tc.channels(nn).getBit == bit
+                    ch = tc.channels(nn);
+                    break;
+                end
+            end
+        end
+        
         function data = compile(tc)
             t = [];
             v = [];
