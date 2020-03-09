@@ -60,13 +60,13 @@ signal endOfInstr	:	std_logic_vector(1 downto 0)	:=	"00";
 -----------------------------------------------------
 ----------   Parse Instruction Signals   ------------
 -----------------------------------------------------
-constant waitInstr	:	std_logic_vector(7 downto 0)	:=	X"00";
+constant waitInstr			:	std_logic_vector(7 downto 0)	:=	X"00";
 constant digitalOutInstr	:	std_logic_vector(7 downto 0)	:=	X"01";
 constant digitalInInstr		:	std_logic_vector(7 downto 0)	:=	X"02";
 
 signal parseState	:	integer range 0 to 1	:=	0;
 signal updateTrig	:	std_logic	:=	'0';
-signal waitDone	:	std_logic	:=	'0';
+signal waitDone		:	std_logic	:=	'0';
 
 
 ----------------------------------------------

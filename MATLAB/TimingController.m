@@ -16,11 +16,15 @@ classdef TimingController < handle
         
         FPGA_COMMAND_STOP = 0;
         FPGA_COMMAND_START = 1;
-        FPGA_COMMAND_UPLOAD = 2;
-        FPGA_COMMAND_WRITE_DEFAULTS = 3;
+        FPGA_COMMAND_READ_STATUS = 2;
+        FPGA_COMMAND_READ_MANUAL = 3;
+        FPGA_COMMAND_WRITE_MANUAL = bitshift(1,16);
+        FPGA_COMMAND_MEM_UPLOAD = bitshift(2,16);
         
-        FPGA_SEQ_UPDATE = 0;
-        FPGA_SEQ_DELAY = 1;
+        FPGA_SEQ_DELAY = 0;
+        FPGA_SEQ_OUT = 1;
+        FPGA_SEQ_IN = 2;
+        
     end
     
     
@@ -78,16 +82,16 @@ classdef TimingController < handle
             
             buf = buf(1:numBuf,:);
             data = zeros(numel(buf),2,'uint32');
-            data(1,:) = [tc.FPGA_SEQ_UPDATE,buf(1,2)];
+            data(1,:) = [tc.FPGA_SEQ_OUT,buf(1,2)];
             numData = 1;
             for nn=2:size(buf,1)
                 dt = buf(nn,1)-buf(nn-1,1);
                 if dt==1
                     numData = numData+1;
-                    data(numData,:) = [tc.FPGA_SEQ_UPDATE,buf(nn,2)];
+                    data(numData,:) = [tc.FPGA_SEQ_OUT,buf(nn,2)];
                 else
                     data(numData+1,:) = [tc.FPGA_SEQ_DELAY,dt];
-                    data(numData+2,:) = [tc.FPGA_SEQ_UPDATE,buf(nn,2)];
+                    data(numData+2,:) = [tc.FPGA_SEQ_OUT,buf(nn,2)];
                     numData = numData+2;
                 end
             end
@@ -98,8 +102,13 @@ classdef TimingController < handle
         function tc = upload(tc)
             tc.open;
             fwrite(tc.ser,tc.FPGA_COMMAND_STOP,'uint32');
-            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_DEFAULTS,'uint32');
+            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
             fwrite(tc.ser,tc.getDefaults,'uint32');
+            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD,'uint32');
+            for nn=1:size(tc.compiledData,1)
+                fwrite(tc.ser,uint32(tc.compiledData(nn,1)),'uint8');
+                fwrite(tc.ser,uint32(tc.compiledData(nn,2)),'uint32');
+            end
             
         end
     end
