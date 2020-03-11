@@ -2,280 +2,290 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
-use work.CustomTypes.all; 
+use work.Constants.all; 
 
 
 entity TimingController is
 	generic(	ID	:	std_logic_vector(7 downto 0));
-	port(	clk	:	in	std_logic;
+	port(	clk			:	in	std_logic;
 			
 			--Serial data signals
-			cmdData		:	in	std_logic_vector(31 downto 0);
-			dataReady	:	in	std_logic;
-			numData		:	in	integer;
-			memData		:	in	std_logic_vector(8*MemBytes-1 downto 0);
+			cmdData			:	in	std_logic_vector(31 downto 0);
+			dataReady		:	in	std_logic;
+			numData			:	in	integer;
+			memData			:	in	mem_data;
 			dataFlag		:	inout	std_logic_vector(1 downto 0);
 			
-			--Serial transmission signals
 			dataToSend		:	out std_logic_vector(31 downto 0);
 			transmitTrig	:	out std_logic;
-			
-			--Memory signals
-			memWriteTrig	:	inout	std_logic;
-			memWriteAddr	:	inout	unsigned(AddrWidth-1 downto 0);
-			dataToWrite		:	out	std_logic_vector(8*MemBytes-1 downto 0);
-			
-			memReadTrig		:	out	std_logic;
-			memReadAddr		:	inout	unsigned(AddrWidth-1 downto 0);
-			memDataValid	:	in	std_logic;
-			dataFromMem		:	in	std_logic_vector(8*MemBytes-1 downto 0);
 			
 			auxOut	:	out std_logic_vector(7 downto 0);
 			
 			--Physical signals
+			trigIn	:	in std_logic;
 			dOut	:	out std_logic_vector(31 downto 0);
-			dIn	:	in	std_logic_vector(7 downto 0));
+			dIn		:	in	std_logic_vector(7 downto 0));
 end TimingController;
 
 architecture Behavioral of TimingController is
+
+component BlockMemoryController is
+	port(	clk	:	in	std_logic;
+			--Write signals
+			memWriteTrig	:	in	std_logic;
+			memWriteAddr	:	in	mem_addr;
+			dataIn			:	in	mem_data
+			
+			--Read signals
+			memReadTrig		:	in	std_logic;
+			memReadAddr		:	in	mem_addr;
+			memDataValid	:	out	std_logic;
+			dataOut			:	out	mem_data);
+end component;
 
 
 ------------------------------------------
 ----------   Memory Signals   ------------
 ------------------------------------------
-constant memAddrIncrement	:	unsigned(AddrWidth-1 downto 0)	:=	(0 => '1', others => '0');
-signal maxMemAddr	:	unsigned(AddrWidth-1 downto 0)	:=	(others => '0');
+signal maxMemAddr					:	mem_addr	:=	(others => '0');
+signal memWriteTrig, memReadTrig	:	std_logic	:=	'0';
+signal memWriteAddr, memReadAddr	:	mem_addr	:=	(others => '0');
+signal memWriteData, memReadData	:	mem_data	:= 	(others => '0');
+signal memDataValid					:	std_logic	:=	'0';
 
 ------------------------------------------------------------------------------------
 --------------     Sample generator signals      -----------------------------------
 ------------------------------------------------------------------------------------
-constant sampleTime	:	integer	:=	4;
+constant sampleTime	:	integer range 0 to 4	:=	4;
 signal sampleCount	:	integer range 0 to 4	:=	0;
 signal sampleTrig	:	std_logic	:=	'0';
-signal seqState	:	integer range 0 to 2	:=	0;
-signal seqStart, seqStop, masterEnable	:	std_logic	:=	'0';
-signal endOfInstr	:	std_logic_vector(1 downto 0)	:=	"00";
+
+signal seqState		:	integer range 0 to 2	:=	0;
+signal seqStart, seqStop, seqEnable, seqRunning, seqDone	:	std_logic	:=	'0';
 
 
 -----------------------------------------------------
 ----------   Parse Instruction Signals   ------------
 -----------------------------------------------------
-constant waitInstr			:	std_logic_vector(7 downto 0)	:=	X"00";
-constant digitalOutInstr	:	std_logic_vector(7 downto 0)	:=	X"01";
-constant digitalInInstr		:	std_logic_vector(7 downto 0)	:=	X"02";
+constant INSTR_WAIT	:	std_logic_vector(7 downto 0)	:=	X"00";
+constant INSTR_OUT	:	std_logic_vector(7 downto 0)	:=	X"01";
+constant INSTR_IN	:	std_logic_vector(7 downto 0)	:=	X"02";
 
 signal parseState	:	integer range 0 to 1	:=	0;
-signal updateTrig	:	std_logic	:=	'0';
-signal waitDone		:	std_logic	:=	'0';
 
 
 ----------------------------------------------
 --------  Delay Generator Signals   ----------
 ----------------------------------------------
-signal waitTime	:	integer	:=	10;
+signal waitTime		:	integer	:=	10;
 signal delayCount	:	integer	:=	0;
-signal delayGenTrig, delayDone	:	std_logic	:=	'0';
-signal waitEnable	:	std_logic	:=	'0';
 
 ----------------------------------------------
 ----------  Digital Out Signals   ------------
 ----------------------------------------------
-signal dOutSig	:	std_logic_vector(31 downto 0)	:=	(others => '0');
-signal dOutManual	:	std_logic_vector(31 downto 0)	:=	(others => '0');
+signal dOutSig		:	digital_output_bank	:=	(others => '0');
+signal dOutManual	:	digital_output_bank	:=	(others => '0');
 
 ----------------------------------------------
 ----------  Digital In Signals   -------------
 ----------------------------------------------
-constant trigRisingEdge	:	std_logic_vector(1 downto 0)	:=	"01";
-constant trigFallingEdge	:	std_logic_vector(1 downto 0)	:=	"10";
+-- constant trigRisingEdge	:	std_logic_vector(1 downto 0)	:=	"01";
+-- constant trigFallingEdge	:	std_logic_vector(1 downto 0)	:=	"10";
 
-signal waitForDigitalIn, trigWaitDone	:	std_logic	:=	'0';
-signal trigSync	:	std_logic_vector(1 downto 0)	:=	"00";
-signal trigBit	:	integer range 0 to 7	:=	0;
-signal trigType	:	integer range 0 to 2	:=	0;
-signal trigInState	:	integer range 0 to 1	:=	0;
+-- signal waitForDigitalIn, trigWaitDone	:	std_logic	:=	'0';
+-- signal trigSync	:	std_logic_vector(1 downto 0)	:=	"00";
+-- signal trigBit	:	integer range 0 to 7	:=	0;
+-- signal trigType	:	integer range 0 to 2	:=	0;
+-- signal trigInState	:	integer range 0 to 1	:=	0;
 
 
 begin
 
-dOut <= dOutSig when masterEnable = '1' else dOutManual;
-waitDone <= delayDone or trigWaitDone;
+TimingMemory: BlockMemoryController PORT MAP(
+	clk 			=> clk100,
+	memWriteTrig 	=> memWriteTrig,
+	memWriteAddr 	=> memWriteAddr,
+	dataIn 			=> memWriteData,
+	memReadTrig 	=> memReadTrig,
+	memReadAddr 	=> memReadAddr,
+	memDataValid 	=> memDataValid,
+	dataOut 		=> memReadData
+);
 
-auxOut(0) <= masterEnable;
-auxOut(1) <= sampleTrig;
-auxOut(2) <= waitEnable;
-auxOut(3) <= seqStart;
-auxOut(5 downto 4) <= dataFlag;
-auxOut(7 downto 6) <= (others => '0');
+dOut <= dOutSig when seqRunning = '1' else dOutManual;
 
+-- auxOut(0) <= masterEnable;
+-- auxOut(1) <= sampleTrig;
+-- auxOut(2) <= waitEnable;
+-- auxOut(3) <= seqStart;
+-- auxOut(5 downto 4) <= dataFlag;
+-- auxOut(7 downto 6) <= (others => '0');
 
-SequenceStart: process(clk) is
-begin
-	if rising_edge(clk) then
-		SequenceFSM: case seqState is
-			when 0 =>
-				if seqStart = '1' then
-					updateTrig <= '1';
-					seqState <= 1;
-				else
-					updateTrig <= '0';
-				end if;
-				
-			when 1 =>
-				updateTrig <= '0';
-				if memDataValid = '1' then
-					seqState <= 2;
-				end if;
-				
-			when 2 =>
-				if seqStop = '1' or endOfInstr(1) = '1' then
-					masterEnable <= '0';
-					seqState <= 0;
-				else
-					masterEnable <= '1';
-				end if;
-			
-			when others => null;
-		end case;	--end SequenceFSM
-	end if;	--end rising_edge(clk)
-end process;
-
+--
+-- Generates sample clock
+--
 SampleGenerator: process(clk) is
 begin
 	if rising_edge(clk) then
-		if sampleCount < sampleTime then
-			sampleCount <= sampleCount + 1;
+		if seqRunning = '1' or (trigIn = '1' and seqEnabled = '1') then	
+			if sampleCount < sampleTime then
+				sampleCount <= sampleCount + 1;
+				sampleTrig <= '0';
+			else
+				sampleCount <= 0;
+				sampleTrig <= '1';
+			end if;
+		else
+			sampleCount <= sampleTime;
 			sampleTrig <= '0';
-		else
-			sampleCount <= 0;
-			sampleTrig <= '1';
-		end if;	--end sampleCount < sampleTime
-	end if;	--end rising_edge
-end process;  --end SampleGenerator
-
-
-ParseInstructions: process(clk) is
-begin
-	if rising_edge(clk) then
-		ParseFSM: case parseState is
-			when 0 =>
-				if sampleTrig = '1' and masterEnable = '1' and endOfInstr /= "11" then
-					if memReadAddr < maxMemAddr then
-						memReadTrig <= '1';
-						memReadAddr <= memReadAddr + memAddrIncrement;		
-					else
-						endOfInstr(0) <= '1';
-						memReadAddr <= (others => '0');
-					end if;
-					parseState <= 1;
-					InstrOptions: case dataFromMem(8*MemBytes-1 downto 8*(MemBytes-1)) is
-						when waitInstr =>
-							waitEnable <= '1';
-							delayGenTrig <= '1';
-							waitTime <= to_integer(unsigned(dataFromMem(31 downto 0)));							
-							
-						when digitalOutInstr =>
-							waitEnable <= '0';
-							dOutSig <= dataFromMem(31 downto 0);
-							
-						when digitalInInstr =>
-							waitEnable <= '1';
-							waitForDigitalIn <= '1';
-							trigBit <= to_integer(unsigned(dataFromMem(7 downto 0)));
-							trigType <= to_integer(unsigned(dataFromMem(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
-
-						when others => null;
-					end case;	--end InstrOptions
-				elsif updateTrig = '1' then
-					memReadTrig <= '1';
-					memReadAddr <= (others => '0');					
-				else
-					memReadTrig <= '0';
-					waitEnable <= '0';
-					delayGenTrig <= '0';
-					waitForDigitalIn <= '0';
-					endOfInstr <= "00";					
-				end if;	--end sampleTrig = '1'
-			
-			when 1 =>
-				memReadTrig <= '0';
-				delayGenTrig <= '0';
-				if waitEnable = '0' then
-					parseState <= 0;
-					endOfInstr(1) <= endOfInstr(0);
-				elsif waitEnable = '1' and waitDone = '1' then
-					parseState <= 0;
-					waitEnable <= '0';
-					endOfInstr(1) <= endOfInstr(0);
-				elsif masterEnable = '0' then
-					parseState <= 0;
-					waitEnable <= '0';
-				end if;
-			
-			when others => null;
-		end case;	--end ParseFSM
-	end if;	--end rising_edge(clk)
-end process;	--end ParseInstructions
-
-
-DelayGenerator: process(clk) is
-begin
-	if rising_edge(clk) then
-		if delayGenTrig = '1' and delayCount = 0 then
-			delayCount <= 1;
-		elsif sampleTrig = '1' and delayCount > 0 and delayCount < waitTime then
-			delayCount <= delayCount + 1;
-		elsif sampleTrig = '1' and delayCount >= waitTime then
-			delayCount <= 0;
-			delayDone <= '1';
-		else
-			delayDone <= '0';
-		end if;	--end delayGenTrig = '1'
-	end if;	--end rising_edge(clk)
-end process;
-
-InputTriggerDetector: process(clk) is
-begin
-	if rising_edge(clk) then
-		DigitalInFSM: case trigInState is
-			when 0 =>
-				trigWaitDone <= '0';
-				if waitForDigitalIn = '1' then
-					trigInState <= 1;
-					trigSync <= dIn(trigBit) & dIn(trigBit);
-				else
-					trigInstate <= 0;
-				end if;
-				
-			when 1 =>
-				trigSync <= trigSync(0) & dIn(trigBit);
-				TrigTypeCase: case trigType is
-					--Falling edge
-					when 0 =>
-						if trigSync = trigFallingEdge then
-							trigInState <= 0;
-							trigWaitDone <= '1';
-						end if;
-						
-					--Either a rising or falling edge
-					when 1 =>
-						if trigSync = trigFallingEdge or trigSync = trigRisingEdge then
-							trigInState <= 0;
-							trigWaitDone <= '1';
-						end if;
-						
-					--Rising edge
-					when 2 =>
-						if trigSync = trigRisingEdge then
-							trigInState <= 0;
-							trigWaitDone <= '1';
-						end if;
-					when others => null;
-				end case;	--end TrigTypeCase
-			when others => null;
-		end case;	--end DigitalInFSM
+		end if;
 	end if;
 end process;
+
+
+MainProcess: process(clk,reset) is
+begin
+	if reset = '1' then
+		parseState <= 0;
+		seqEnabled <= '0';
+		seqRunning <= '0';
+		seqDone <= '0';
+	elsif rising_edge(clk) and (seqStop = '1' or seqDone = '1') then
+		seqRunning <= '0';
+		parseState <= 0;
+		seqEnabled <= '0';
+		seqDone <= '0';
+	elsif rising_edge(clk) and seqStop = '0' then
+		MainFSM: case parseState is
+			--
+			-- Wait for start signal
+			--
+			when 0 =>
+				if seqStart = '1' then
+					parseState <= 1;
+					memReadTrig <= '1';
+					seqEnabled <= '1';
+				else
+					memReadAddr <= (others => '0');
+					seqEnabled <= '0';
+					memReadTrig <= '0';
+					seqDone <= '0';
+					seqRunning <= '0';
+				end if;
+
+			--
+			-- Wait for trigger or continue if sequence is running
+			--
+			when 1 =>
+				memReadTrig <= '0';
+				if seqDone = '1' then
+					parseState <= 0;
+				else
+					parseState <= 2;
+				end if;
+
+			--
+			-- Parse instruction
+			--
+			when 2 =>
+				if sampleTick = '1' then
+					if memReadAddr < maxMemAddr then
+						memReadTrig <= '1';
+						memReadAddr <= memReadAddr + X"1";
+						seqRunning <= '1';
+					else
+						memReadAddr <= (others => '0');
+						seqRunning <= '0';
+						seqDone <= '1';
+					end if;
+
+					InstrOptions: case memReadData(8*NUM_MEM_BYTES-1 downto 8*(NUM_MEM_BYTES-1)) is
+						when INSTR_WAIT =>
+							waitTime <= to_integer(unsigned(memReadData(31 downto 0)));	
+							delayCount <= 0;
+							parseState <= 3;					
+							
+						when INSTR_OUT =>
+							dOutSig <= memReadData(31 downto 0);
+							parseState <= 1;
+							
+						-- when INSTR_IN =>
+						-- 	waitEnable <= '1';
+						-- 	waitForDigitalIn <= '1';
+						-- 	trigBit <= to_integer(unsigned(memReadData(7 downto 0)));
+						-- 	trigType <= to_integer(unsigned(memReadData(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
+						-- 	parseState <= 4;
+
+						when others => null;
+					end case;
+				end if;
+
+			--
+			-- Delay state
+			--
+			when 3 =>
+				memReadTrig <= '0';
+				if sampleTick = '1' and delayCount < (waitTime - 1) then
+					delayCount <= delayCount + 1;
+				elsif sampleTick = '1' then
+					parseState <= 2;
+				end if;
+					
+			-- --
+			-- -- Wait-for-trigger state
+			-- --
+			-- when 4 =>
+				
+
+
+			when others => null;
+		end case;
+	end if;
+end process;
+
+
+-- InputTriggerDetector: process(clk) is
+-- begin
+-- 	if rising_edge(clk) then
+-- 		DigitalInFSM: case trigInState is
+-- 			when 0 =>
+-- 				trigWaitDone <= '0';
+-- 				if waitForDigitalIn = '1' then
+-- 					trigInState <= 1;
+-- 					trigSync <= dIn(trigBit) & dIn(trigBit);
+-- 				else
+-- 					trigInstate <= 0;
+-- 				end if;
+				
+-- 			when 1 =>
+-- 				trigSync <= trigSync(0) & dIn(trigBit);
+-- 				TrigTypeCase: case trigType is
+-- 					--Falling edge
+-- 					when 0 =>
+-- 						if trigSync = trigFallingEdge then
+-- 							trigInState <= 0;
+-- 							trigWaitDone <= '1';
+-- 						end if;
+						
+-- 					--Either a rising or falling edge
+-- 					when 1 =>
+-- 						if trigSync = trigFallingEdge or trigSync = trigRisingEdge then
+-- 							trigInState <= 0;
+-- 							trigWaitDone <= '1';
+-- 						end if;
+						
+-- 					--Rising edge
+-- 					when 2 =>
+-- 						if trigSync = trigRisingEdge then
+-- 							trigInState <= 0;
+-- 							trigWaitDone <= '1';
+-- 						end if;
+-- 					when others => null;
+-- 				end case;	--end TrigTypeCase
+-- 			when others => null;
+-- 		end case;	--end DigitalInFSM
+-- 	end if;
+-- end process;
 
 
 SerialInstructions: process(clk) is
@@ -330,7 +340,7 @@ begin
 		else
 			if memWriteTrig = '1' then
 				memWriteTrig <= '0';
-				memWriteAddr <= memWriteAddr + memAddrIncrement;
+				memWriteAddr <= memWriteAddr + X"1";
 			end if;
 			seqStart <= '0';
 			seqStop <= '0';

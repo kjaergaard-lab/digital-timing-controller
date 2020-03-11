@@ -12,9 +12,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.ALL;
 use ieee.std_logic_unsigned.all; 
 
-package CustomTypes is
-
-type int_array is array (integer range <>) of integer;
+package Constants is
 
 -- type <new_type> is
 --  record
@@ -25,11 +23,15 @@ type int_array is array (integer range <>) of integer;
 -- Declare constants
 --
 -- constant <constant_name>		: time := <time_unit> ns;
-constant MaxNumDisp	:	integer	:=	4;	--Maximum number of different dispersive settings
-constant BaudPeriod		:	integer	:= 868;	--With a 100 MHz clock, corresponds to 115200 Hz
+constant BAUD_PERIOD		:	integer	:= 868;	--With a 100 MHz clock, corresponds to 115200 Hz
 
-constant MemBytes		:	integer	:=	5;
-constant AddrWidth	:	integer	:=	11;
+constant NUM_MEM_BYTES		:	integer	:=	5;
+constant MEM_ADDR_WIDTH     :	integer	:=	11;
+
+type int_array is array (integer range <>) of integer;
+subtype mem_data is std_logic_vector(8*NUM_MEM_BYTES-1 downto 0);
+subtype mem_addr is unsigned(MEM_ADDR_WIDTH-1 downto 0);
+subtype digital_output_bank is std_logic_vector(31 downto 0);
 
 --
 -- Declare functions and procedure
@@ -38,9 +40,9 @@ constant AddrWidth	:	integer	:=	11;
 -- procedure <procedure_name> (<type_declaration> <constant_name>	: in <type_declaration>);
 --
 
-end CustomTypes;
+end Constants;
 
-package body CustomTypes is
+package body Constants is
 
 ---- Example 1
 --  function <function_name>  (signal <signal_name> : in <type_declaration>  ) return <type_declaration> is
@@ -68,4 +70,4 @@ package body CustomTypes is
 --    
 --  end <procedure_name>;
  
-end CustomTypes;
+end Constants;

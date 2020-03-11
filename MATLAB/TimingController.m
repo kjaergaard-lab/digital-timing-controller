@@ -104,7 +104,7 @@ classdef TimingController < handle
             fwrite(tc.ser,tc.FPGA_COMMAND_STOP,'uint32');
             fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
             fwrite(tc.ser,tc.getDefaults,'uint32');
-            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD,'uint32');
+            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');
             for nn=1:size(tc.compiledData,1)
                 fwrite(tc.ser,uint32(tc.compiledData(nn,1)),'uint8');
                 fwrite(tc.ser,uint32(tc.compiledData(nn,2)),'uint32');

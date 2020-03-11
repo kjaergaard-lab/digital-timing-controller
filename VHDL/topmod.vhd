@@ -2,18 +2,19 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
-use work.CustomTypes.all; 
+use work.Constants.all; 
 
 entity topmod is
-	port (	clk100x	:	in	std_logic;
+	port (		clk100x	:	in	std_logic;
 				ledvec	:	out	std_logic_vector(7 downto 0);
---				SW	:	in	std_logic_vector(3 downto 0);
-				TxD	:	out	std_logic;
-				RxD	:	in	std_logic;
+				TxD		:	out	std_logic;
+				RxD		:	in	std_logic;
 				
+				trigIn		:	in	std_logic;
+				trigEnable	:	in	std_logic;
 --				auxOut	:	out std_logic_vector(7 downto 0);
 				dOut		:	out std_logic_vector(31 downto 0);
-				dIn		:	in	std_logic_vector(7 downto 0)
+				dIn			:	in	std_logic_vector(7 downto 0)
 			);	
 end topmod;
 
@@ -44,7 +45,7 @@ component SerialCommunication
 			cmdDataOut		:	out std_logic_vector(31 downto 0);					--32 bit command word
 			numDataOut		:	out integer;												--Numerical parameter
 			memDataOut		:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
-			dataFlag			:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
+			dataFlag		:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
 			dataReady		:	out 	std_logic;											--Flag to indicate that data is valid
 
 			--Signals for transmitting on serial port
@@ -54,51 +55,26 @@ component SerialCommunication
 			transmitBusy	:	out std_logic);							--Flag to indicate that a transmission is in progress
 end component;
 
-
-component BlockMemoryController is
-	port(	clk	:	in	std_logic;
-			--Write signals
-			memWriteTrig	:	in	std_logic;
-			memWriteAddr	:	in	unsigned(AddrWidth-1 downto 0);
-			dataIn			:	in	std_logic_vector(8*MemBytes-1 downto 0);
-			
-			--Read signals
-			memReadTrig		:	in	std_logic;
-			memReadAddr		:	in	unsigned(AddrWidth-1 downto 0);
-			memDataValid	:	out	std_logic;
-			dataOut			:	out	std_logic_vector(8*MemBytes-1 downto 0));
-end component;
-
 component TimingController is
 	generic(	ID	:	std_logic_vector(7 downto 0));
-	port(	clk	:	in	std_logic;
+	port(	clk			:	in	std_logic;
 			
 			--Serial data signals
-			cmdData		:	in	std_logic_vector(31 downto 0);
-			dataReady	:	in	std_logic;
-			numData		:	in	integer;
-			memData		:	in	std_logic_vector(8*MemBytes-1 downto 0);
+			cmdData			:	in	std_logic_vector(31 downto 0);
+			dataReady		:	in	std_logic;
+			numData			:	in	integer;
+			memData			:	in	mem_data;
 			dataFlag		:	inout	std_logic_vector(1 downto 0);
 			
-			--Serial transmission signals
 			dataToSend		:	out std_logic_vector(31 downto 0);
 			transmitTrig	:	out std_logic;
-			
-			--Memory signals
-			memWriteTrig	:	inout	std_logic;
-			memWriteAddr	:	inout	unsigned(AddrWidth-1 downto 0);
-			dataToWrite		:	out	std_logic_vector(8*MemBytes-1 downto 0);
-			
-			memReadTrig		:	out	std_logic;
-			memReadAddr		:	inout	unsigned(AddrWidth-1 downto 0);
-			memDataValid	:	in	std_logic;
-			dataFromMem		:	in	std_logic_vector(8*MemBytes-1 downto 0);
 			
 			auxOut	:	out std_logic_vector(7 downto 0);
 			
 			--Physical signals
+			trigIn	:	in std_logic;
 			dOut	:	out std_logic_vector(31 downto 0);
-			dIn	:	in	std_logic_vector(7 downto 0));
+			dIn		:	in	std_logic_vector(7 downto 0));
 end component;
 
 
@@ -120,16 +96,13 @@ signal numData			:	integer		:= 0;		--Numerical data from ReadData
 signal memData			:	std_logic_vector(8*MemBytes-1 downto 0)	:=	(others => '0');
 signal dataFlag		:	std_logic_vector(1 downto 0)	:=	"00";
 
-------------------------------------------------------------------------------------
-----------------------Memory interface signals--------------------------------------
-------------------------------------------------------------------------------------
-signal memWriteTrig, memReadTrig, memDataValid	:	std_logic	:=	'0';
-signal memReadAddr, memWriteAddr	:	unsigned(AddrWidth-1 downto 0)	:=	(others => '0');
-signal memDataToWrite, dataFromMem	:	std_logic_vector(8*MemBytes-1 downto 0)	:=	(others => '0');
+
 
 ------------------------------------------------------------------------------------
 ----------------------     Other signals      --------------------------------------
 ------------------------------------------------------------------------------------
+signal trigSync		:	std_logic_vector(1 downto 0)	:=	"00";
+signal trig			:	std_logic	:=	'0';
 
 
 begin
@@ -164,19 +137,6 @@ port map(
 	transmitBusy => transmitBusy);
 	
 	
--------------------------------------------------------
-----------  Timing Controller Components  -------------
--------------------------------------------------------
-TimingMemory: BlockMemoryController PORT MAP(
-	clk => clk100,
-	memWriteTrig => memWriteTrig,
-	memWriteAddr => memWriteAddr,
-	dataIn => memDataToWrite,
-	memReadTrig => memReadTrig,
-	memReadAddr => memReadAddr,
-	memDataValid => memDataValid,
-	dataOut => dataFromMem
-);
 
 TimingControl: TimingController 
 generic map(
@@ -190,14 +150,7 @@ PORT MAP(
 	memData => memData,
 	dataFlag => dataFlag,
 	dataToSend => dataToSend,
-	transmitTrig => transmitTrig,
-	memWriteTrig => memWriteTrig,
-	memWriteAddr => memWriteAddr,
-	dataToWrite => memDataToWrite,
-	memReadTrig => memReadTrig,
-	memReadAddr => memReadAddr,
-	memDataValid => memDataValid,
-	dataFromMem => dataFromMem,
+	trigIn	=>	trig,
 	auxOut => open,
 	dOut => dOut,
 	dIn => dIn
@@ -205,6 +158,18 @@ PORT MAP(
   
 
 ledvec <= cmdData(31 downto 24);
+
+--
+-- Input trigger synchronization
+--
+InputTrigSync: process(clk) is
+begin
+	if rising_edge(clk) then
+		trigSync <= (trigSync(0) & trigIn);
+	end if;
+end process;
+
+trig <= '1' when trigSync = "01" and trigEnable = '1' else '0';
 
 
 -------------------------------------------------------

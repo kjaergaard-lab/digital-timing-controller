@@ -2,20 +2,20 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
-use work.CustomTypes.all; 
+use work.Constants.all; 
 
 entity BlockMemoryController is
 	port(	clk	:	in	std_logic;
 			--Write signals
 			memWriteTrig	:	in	std_logic;
-			memWriteAddr	:	in	unsigned(AddrWidth-1 downto 0);
-			dataIn			:	in	std_logic_vector(8*MemBytes-1 downto 0);
+			memWriteAddr	:	in	mem_addr;
+			dataIn			:	in	mem_data
 			
 			--Read signals
 			memReadTrig		:	in	std_logic;
-			memReadAddr		:	in	unsigned(AddrWidth-1 downto 0);
+			memReadAddr		:	in	mem_addr;
 			memDataValid	:	out	std_logic;
-			dataOut			:	out	std_logic_vector(8*MemBytes-1 downto 0));
+			dataOut			:	out	mem_data);
 end BlockMemoryController;
 
 architecture Behavioral of BlockMemoryController is
@@ -32,12 +32,12 @@ COMPONENT BlockMemory
 END COMPONENT;
 
 
-signal memEnable	:	std_logic	:=	'0';
-signal memWriteEnable	:	std_logic_vector(0 downto 0)	:=	"0";
-signal memAddrIn	:	std_logic_vector(AddrWidth-1 downto 0)	:=	(others => '0');
-signal memDataOut, memDataIn	:	std_logic_vector(8*MemBytes-1 downto 0);
+signal memEnable				:	std_logic	:=	'0';
+signal memWriteEnable			:	std_logic_vector(0 downto 0)	:=	"0";
+signal memAddrIn				:	std_logic_vector(AddrWidth-1 downto 0)	:=	(others => '0');
+signal memDataOut, memDataIn	:	mem_data;
 
-signal memState	:	integer range 0 to 4	:=	0;
+signal memState					:	integer range 0 to 4	:=	0;
 
 begin
 
