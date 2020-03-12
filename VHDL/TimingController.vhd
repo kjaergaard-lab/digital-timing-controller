@@ -328,7 +328,6 @@ begin
 			seqStart <= '0';
 			seqStop <= '0';
 			transmitTrig <= '0';
-			reset <= '0';
 		end if;	--end dataReady
 	end if;	--end rising_edge(clk)
 end process;
