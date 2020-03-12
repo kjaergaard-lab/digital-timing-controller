@@ -1,3 +1,4 @@
 *.asv
 *.log
 *.mat
+FPGA Files/*

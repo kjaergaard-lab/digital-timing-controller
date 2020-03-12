@@ -155,14 +155,20 @@ classdef TimingController < handle
             tc.compiledData = data;
         end
         
-        function tc = upload(tc)
-            tc.stop;
-            tc.writeDefaults;
-            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');   %Note the size - 1
-            for nn=1:size(tc.compiledData,1)
-                fwrite(tc.ser,uint32(tc.compiledData(nn,1)),'uint8');
-                fwrite(tc.ser,uint32(tc.compiledData(nn,2)),'uint32');
+        function tc = upload(tc,dev)
+            if nargin < 2
+                tc.open;
+                dev = tc.ser;
             end
+            fwrite(dev,tc.FPGA_COMMAND_STOP,'uint32');
+            fwrite(dev,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
+            fwrite(dev,tc.getDefaults,'uint32');
+            fwrite(dev,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');   %Note the size - 1
+            for nn=1:size(tc.compiledData,1)
+                fwrite(dev,uint32(tc.compiledData(nn,1)),'uint8');
+                fwrite(dev,uint32(tc.compiledData(nn,2)),'uint32');
+            end
+            fwrite(dev,tc.FPGA_COMMAND_START,'uint32');
         end
         
         function tc = start(tc)
