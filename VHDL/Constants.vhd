@@ -36,41 +36,150 @@ subtype digital_output_bank is std_logic_vector(31 downto 0);
 type mem_data_array is array (integer range <>) of mem_data;
 -- type ser_data_array is array (integer range <>) of std_logic_vector(31 downto 0);
 
---
--- Declare functions and procedure
---
--- function <function_name>  (signal <signal_name> : in <type_declaration>) return <type_declaration>;
--- procedure <procedure_name> (<type_declaration> <constant_name>	: in <type_declaration>);
---
+function slvToInt(
+	signal vecIn	: std_logic_vector)
+	return integer;
+	
+procedure getParamSigned(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out integer);
+	
+procedure getParamSigned(
+	signal flagIn	:	inout std_logic;
+	signal dataIn	:	in std_logic_vector;
+	signal paramArray	:	out int_array;
+	signal idx		:	in std_logic_vector);
+
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out integer);
+	
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out std_logic_vector);
+	
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out unsigned);
+	
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out std_logic);
+	
+procedure getParam(
+	signal flagIn	:	inout std_logic;
+	signal dataIn	:	in std_logic_vector;
+	signal paramArray	:	out int_array;
+	signal idx		:	in std_logic_vector);
 
 end Constants;
 
 package body Constants is
 
----- Example 1
---  function <function_name>  (signal <signal_name> : in <type_declaration>  ) return <type_declaration> is
---    variable <variable_name>     : <type_declaration>;
---  begin
---    <variable_name> := <signal_name> xor <signal_name>;
---    return <variable_name>; 
---  end <function_name>;
+procedure getParamSigned(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out integer) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		param <= to_integer(signed(dataIn));
+	end if;
+end getParamSigned;
 
----- Example 2
---  function <function_name>  (signal <signal_name> : in <type_declaration>;
---                         signal <signal_name>   : in <type_declaration>  ) return <type_declaration> is
---  begin
---    if (<signal_name> = '1') then
---      return <signal_name>;
---    else
---      return 'Z';
---    end if;
---  end <function_name>;
+procedure getParamSigned(
+	signal flagIn	:	inout std_logic;
+	signal dataIn	:	in std_logic_vector;
+	signal paramArray	:	out int_array;
+	signal idx		:	in std_logic_vector) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		paramArray(slvToInt(idx)) <= to_integer(signed(dataIn));
+	end if;
+end getParamSigned;
 
----- Procedure Example
---  procedure <procedure_name>  (<type_declaration> <constant_name>  : in <type_declaration>) is
---    
---  begin
---    
---  end <procedure_name>;
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out integer) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		param <= to_integer(unsigned(dataIn));
+	end if;
+end getParam;
+
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out std_logic_vector) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		param <= dataIn(param'length-1 downto 0);
+	end if;
+end getParam;
+
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out unsigned) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		param <= unsigned(dataIn(param'length-1 downto 0));
+	end if;
+end getParam;
+
+procedure getParam(
+	signal flagIn	:	inout	std_logic;
+	signal dataIn	:	in	std_logic_vector;
+	signal param	:	out std_logic) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		param <= dataIn(0);
+	end if;
+end getParam;
+
+procedure getParam(
+	signal flagIn	:	inout std_logic;
+	signal dataIn	:	in std_logic_vector;
+	signal paramArray	:	out int_array;
+	signal idx		:	in std_logic_vector) is
+begin
+	if flagIn = '0' then
+		flagIn <= '1';
+	else
+		flagIn <= '0';
+		paramArray(slvToInt(idx)) <= to_integer(unsigned(dataIn));
+	end if;
+end getParam;
+
+function slvToInt(
+	signal vecIn	: std_logic_vector)
+	return integer is
+begin
+	return to_integer(unsigned(vecIn));
+end slvToInt;
+
  
 end Constants;

@@ -159,112 +159,106 @@ begin
 end process;
 
 
-MainProcess: process(clk,reset) is
+MainProcess: process(clk) is
 begin
-	if reset = '1' then
-		parseState <= 0;
-		seqEnabled <= '0';
-		seqRunning <= '0';
-		seqDone <= '0';
-	elsif rising_edge(clk) and seqStop = '1' then
-		seqRunning <= '0';
-		parseState <= 0;
-		seqEnabled <= '0';
-		seqDone <= '0';
-	elsif rising_edge(clk) and seqStop = '0' then
-		MainFSM: case parseState is
-			--
-			-- Wait for start signal
-			--
-			when 0 =>
-				if seqStart = '1' then
-					parseState <= 1;
-					memReadTrig <= '1';
-					seqEnabled <= '1';
-				else
-					memReadAddr <= (others => '0');
-					seqEnabled <= '0';
-					memReadTrig <= '0';
-					seqDone <= '0';
-					seqRunning <= '0';
-				end if;
-
-			--
-			-- Wait for trigger or continue if sequence is running
-			--
-			when 1 =>
---				if seqDone = '1' then
---					memReadTrig <= '1';
---					seqDone <= '0';
---					parseState <= 0;
---					seqRunning <= '0';
---				else
-					memReadTrig <= '0';
-					parseState <= 2;
---				end if;
-
-			--
-			-- Parse instruction
-			--
-			when 2 =>
-				if sampleTick = '1' and seqDone = '1' then
-					memReadTrig <= '1';
-					seqDone <= '0';
-					parseState <= 1;
-					seqRunning <= '0';
-				elsif sampleTick = '1' then
-					if memReadAddr < maxMemAddr then
+	if rising_edge(clk) then
+		if reset = '1' or seqStop = '1' then
+			parseState <= 0;
+		else
+			MainFSM: case parseState is
+				--
+				-- Wait for start signal
+				--
+				when 0 =>
+					if seqStart = '1' then
+						parseState <= 1;
 						memReadTrig <= '1';
-						memReadAddr <= memReadAddr + X"1";
-						seqRunning <= '1';
+						seqEnabled <= '1';
 					else
 						memReadAddr <= (others => '0');
-						seqDone <= '1';
+						seqEnabled <= '0';
+						memReadTrig <= '0';
+						seqDone <= '0';
+						seqRunning <= '0';
 					end if;
 
-					InstrOptions: case memReadData(8*NUM_MEM_BYTES-1 downto 8*(NUM_MEM_BYTES-1)) is
-						when INSTR_WAIT =>
-							waitTime <= to_integer(unsigned(memReadData(31 downto 0)));	
-							delayCount <= 0;
-							parseState <= 3;					
-							
-						when INSTR_OUT =>
-							dOutSig <= memReadData(31 downto 0);
-							parseState <= 2;
-							
-						-- when INSTR_IN =>
-						-- 	waitEnable <= '1';
-						-- 	waitForDigitalIn <= '1';
-						-- 	trigBit <= to_integer(unsigned(memReadData(7 downto 0)));
-						-- 	trigType <= to_integer(unsigned(memReadData(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
-						-- 	parseState <= 4;
+				--
+				-- Wait for trigger or continue if sequence is running
+				--
+				when 1 =>
+	--				if seqDone = '1' then
+	--					memReadTrig <= '1';
+	--					seqDone <= '0';
+	--					parseState <= 0;
+	--					seqRunning <= '0';
+	--				else
+						memReadTrig <= '0';
+						parseState <= 2;
+	--				end if;
 
-						when others => parseState <= 1;
-					end case;
-				else
+				--
+				-- Parse instruction
+				--
+				when 2 =>
+					if sampleTick = '1' and seqDone = '1' then
+						memReadTrig <= '1';
+						seqDone <= '0';
+						parseState <= 1;
+						seqRunning <= '0';
+					elsif sampleTick = '1' then
+						if memReadAddr < maxMemAddr then
+							memReadTrig <= '1';
+							memReadAddr <= memReadAddr + X"1";
+							seqRunning <= '1';
+						else
+							memReadAddr <= (others => '0');
+							seqDone <= '1';
+						end if;
+
+						InstrOptions: case memReadData(8*NUM_MEM_BYTES-1 downto 8*(NUM_MEM_BYTES-1)) is
+							when INSTR_WAIT =>
+								waitTime <= to_integer(unsigned(memReadData(31 downto 0)));	
+								delayCount <= 0;
+								parseState <= 3;					
+								
+							when INSTR_OUT =>
+								dOutSig <= memReadData(31 downto 0);
+								parseState <= 2;
+								
+							-- when INSTR_IN =>
+							-- 	waitEnable <= '1';
+							-- 	waitForDigitalIn <= '1';
+							-- 	trigBit <= to_integer(unsigned(memReadData(7 downto 0)));
+							-- 	trigType <= to_integer(unsigned(memReadData(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
+							-- 	parseState <= 4;
+
+							when others => parseState <= 1;
+						end case;
+					else
+						memReadTrig <= '0';
+					end if;
+
+				--
+				-- Delay state
+				--
+				when 3 =>
 					memReadTrig <= '0';
-				end if;
-
-			--
-			-- Delay state
-			--
-			when 3 =>
-				memReadTrig <= '0';
-				if sampleTick = '1' and delayCount < (waitTime - 2) then
-					delayCount <= delayCount + 1;
-				elsif delayCount = (waitTime - 2) then
-					parseState <= 2;
-				end if;
+					if sampleTick = '1' and delayCount < (waitTime - 2) then
+						delayCount <= delayCount + 1;
+					elsif delayCount = (waitTime - 2) then
+						parseState <= 2;
+					end if;
+						
+				-- --
+				-- -- Wait-for-trigger state
+				-- --
+				-- when 4 =>
 					
-			-- --
-			-- -- Wait-for-trigger state
-			-- --
-			-- when 4 =>
-				
 
 
-			when others => null;
-		end case;
+				when others => null;
+			end case;
+		end if;
 	end if;
 end process;
 
@@ -336,13 +330,13 @@ begin
 					end case;	--end SoftTrigs
 				
 				--Manual digital outputs
-				when X"01" => 
-					if dataFlag(0) = '0' then
-						dataFlag(0) <= '1';
-					else
-						dataFlag(0) <= '0';
-						dOutManual <= numData;
-					end if;
+				when X"01" => getParam(dataFlag(0),numData,dOutManual);
+--					if dataFlag(0) = '0' then
+--						dataFlag(0) <= '1';
+--					else
+--						dataFlag(0) <= '0';
+--						dOutManual <= numData;
+--					end if;
 					
 				
 				--Memory uploading

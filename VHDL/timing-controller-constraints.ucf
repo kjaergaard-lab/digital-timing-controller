@@ -1,5 +1,5 @@
 NET "clk50x" LOC = "E12"| IOSTANDARD = LVCMOS33 ;
-NET "clkExt" LOC = "U12" | IOSTANDARD = LVCMOS33;
+#NET "clkExt" LOC = "U12" | IOSTANDARD = LVCMOS33;
 
 
 
@@ -15,8 +15,8 @@ NET "ledvec<0>" LOC = "R20" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
 NET "RxD" LOC = "E16" ;
 NET "TxD" LOC = "F15" ;
 
-NET "seqTrigIn" 		LOC = "A8";
-NET "seqTrigEnable" 	LOC = "AA4";
+NET "trigIn" 		LOC = "A8";
+NET "trigEnable" 	LOC = "AA4";
 
 NET "probeInRb" 		LOC = "AB6";
 NET "shutterInRb" 	LOC = "AA10";

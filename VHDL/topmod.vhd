@@ -70,12 +70,12 @@ architecture Behavioral of topmod is
 -----------------  Clock Components  ------------------
 -------------------------------------------------------
 component DCM1
-port
- (-- Clock in ports
-  CLK_IN1           : in     std_logic;
-  -- Clock out ports
-  CLK_OUT1          : out    std_logic
- );
+PORT(
+		CLKIN_IN : IN std_logic;          
+		CLKIN_IBUFG_OUT : OUT std_logic;
+		CLK0_OUT : OUT std_logic;
+		CLK2X_OUT : OUT std_logic
+		);
 end component;
 
 -------------------------------------------------------
@@ -108,7 +108,7 @@ component TimingController is
 			--Serial data signals
 			cmdData			:	in	std_logic_vector(31 downto 0);
 			dataReady		:	in	std_logic;
-			numData			:	in	integer;
+			numData			:	in	std_logic_vector(31 downto 0);
 			memData			:	in	mem_data;
 			dataFlag		:	inout	std_logic_vector(1 downto 0);
 			
@@ -141,7 +141,7 @@ component FlexDDSControl is
 end component;
 
 
-signal clk	:	std_logic;
+signal clk50, clk100, clk	:	std_logic;
 
 ------------------------------------------------------------------------------------
 ----------------------Serial interface signals--------------------------------------
@@ -161,9 +161,10 @@ signal dataFlag, dataFlag0, dataFlag1, dataFlagFF	:	std_logic_vector(1 downto 0)
 ------------------------------------------------------------------------------------
 ----------------------     Other signals      --------------------------------------
 ------------------------------------------------------------------------------------
-signal trigSync		:	std_logic_vector(1 downto 0)	:=	"00";
-signal trig			:	std_logic	:=	'0';
+signal trigSync			:	std_logic_vector(1 downto 0)	:=	"00";
+signal trig, startTrig	:	std_logic	:=	'0';
 
+signal dOut	:	std_logic_vector(31 downto 0)	:=	(others => '0');
 
 begin
 
@@ -172,8 +173,12 @@ begin
 -----------------  Clock Components  ------------------
 -------------------------------------------------------
 Inst_dcm1: DCM1 port map (
-	CLK_IN1 => clk50x,
-	CLK_OUT1 => clk);
+	CLKIN_IN => clk50x,
+	CLKIN_IBUFG_OUT => open,
+	CLK0_OUT => clk50,
+	CLK2X_OUT => clk100);
+	
+clk <= clk100;
 	
 -------------------------------------------------------
 ----------  Serial Communication Components  ----------
@@ -182,8 +187,8 @@ Inst_dcm1: DCM1 port map (
 dataFlag <= dataFlag0 or dataFlag1 or dataFlagFF;
 
 SerialCommunication_inst: SerialCommunication 
-generic map(baudPeriod => BaudPeriod,
-			numMemBytes => MemBytes)
+generic map(baudPeriod => BAUD_PERIOD,
+			numMemBytes => NUM_MEM_BYTES)
 port map(
 	clk => clk,
 	
@@ -237,7 +242,7 @@ PORT MAP(
 	trigIn			=>	trig,
 	auxOut 			=> 	open,
 	dOut 			=> 	dOut,
-	dIn 			=> 	dIn
+	dIn 			=> 	(others => '0')
 ); 
 
 --
@@ -298,7 +303,7 @@ port map(
 	pulseOut1		=>	FlexDDSOut1,
 	pulseOut2		=>	FlexDDSOut2,
 	pulseOut3		=>	FlexDDSOut3
-)
+);
 
 -------------------------------------------------------
 ------------  Serial command parsing  -----------------
@@ -307,7 +312,7 @@ port map(
 TopLevelSerialParsing: process(clk) is
 begin
 	if rising_edge(clk) then
-		if dataReady = '1' and cmdData(31 downto 24) = "FF" then
+		if dataReady = '1' and cmdData(31 downto 24) = X"FF" then
 			startTrig <= '1';
 		else
 			startTrig <= '0';

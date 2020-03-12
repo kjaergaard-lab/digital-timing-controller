@@ -20,7 +20,7 @@ end BlockMemoryController;
 
 architecture Behavioral of BlockMemoryController is
 
-COMPONENT BlockMemory
+COMPONENT BlockMem
   PORT (
     clka : IN STD_LOGIC;
     ena : IN STD_LOGIC;
@@ -41,7 +41,7 @@ signal memState					:	integer range 0 to 4	:=	0;
 
 begin
 
-BlockMem : BlockMemory
+BlockMemory : BlockMem
   PORT MAP (
     clka => clk,
     ena => memEnable,
