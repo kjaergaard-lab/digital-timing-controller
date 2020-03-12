@@ -5,16 +5,62 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 use work.Constants.all; 
 
 entity topmod is
-	port (		clk100x	:	in	std_logic;
+	port (		clk50x	:	in	std_logic;
+				-- clkExt	:	in	std_logic;
+				trigIn		:	in	std_logic;
+				trigEnable	:	in	std_logic;
+
+				--
+				-- Serial data signals
+				--
 				ledvec	:	out	std_logic_vector(7 downto 0);
 				TxD		:	out	std_logic;
 				RxD		:	in	std_logic;
 				
-				trigIn		:	in	std_logic;
-				trigEnable	:	in	std_logic;
---				auxOut	:	out std_logic_vector(7 downto 0);
-				dOut		:	out std_logic_vector(31 downto 0);
-				dIn			:	in	std_logic_vector(7 downto 0)
+				--Regular imaging
+				camTrigOut		:	out	std_logic;
+				
+				probeInRb		:	in	std_logic;
+				shutterInRb		:	in	std_logic;
+				probeOutRb		:	out	std_logic;
+				shutterOutRb	:	out	std_logic;	
+				
+				probeInK		:	in	std_logic;
+				shutterInK		:	in	std_logic;
+				probeOutK		:	out	std_logic;
+				shutterOutK		:	out	std_logic;		
+				
+				--Vertical imaging
+				probeOutV		:	out	std_logic;
+				shutterOutV		:	out	std_logic;
+				camTrigInV		:	in	std_logic;
+				camTrigOutV		:	out	std_logic;
+				
+				--Fluorescence imaging
+				probeInF		:	in	std_logic_vector(1 downto 0);		--(MOT,Repump)
+				probeOutF		:	out	std_logic_vector(1 downto 0);		--(MOT,Repump)
+				shutterInF		:	in	std_logic_vector(1 downto 0);		--(MOT,Repump)
+				shutterOutF		:	out	std_logic_vector(1 downto 0);		--(MOT,Repump)
+
+				--Trapping laser
+				trapLaserOut	:	out	std_logic;	
+				
+				--Coil output
+				coilOut			:	out	std_logic;
+
+				--State preparation
+				inMW			:	in	std_logic;
+				outMW			:	out	std_logic;
+				outRF			:	out	std_logic;
+				outPulseType	:	out	std_logic;
+				
+				--FlexDDS triggers
+				FlexDDSOut1		:	out	std_logic;
+				FlexDDSOut2		:	out	std_logic;
+				FlexDDSOut3		:	out	std_logic
+
+				-- dOut		:	out std_logic_vector(31 downto 0);
+				-- dIn			:	in	std_logic_vector(7 downto 0)
 			);	
 end topmod;
 
@@ -126,7 +172,7 @@ begin
 -----------------  Clock Components  ------------------
 -------------------------------------------------------
 Inst_dcm1: DCM1 port map (
-	CLK_IN1 => clk100x,
+	CLK_IN1 => clk50x,
 	CLK_OUT1 => clk);
 	
 -------------------------------------------------------
@@ -137,7 +183,7 @@ dataFlag <= dataFlag0 or dataFlag1 or dataFlagFF;
 
 SerialCommunication_inst: SerialCommunication 
 generic map(baudPeriod => BaudPeriod,
-				numMemBytes => MemBytes)
+			numMemBytes => MemBytes)
 port map(
 	clk => clk,
 	
@@ -153,6 +199,7 @@ port map(
 	transmitTrig => transmitTrig,
 	transmitBusy => transmitBusy);
 	
+ledvec <= cmdData(ledvec'length-1 downto 0);
 
 --
 -- Input trigger synchronization
@@ -192,7 +239,50 @@ PORT MAP(
 	dOut 			=> 	dOut,
 	dIn 			=> 	dIn
 ); 
-  
+
+--
+-- Regular imaging
+--
+camTrigOut <= dOut(0);
+probeOutRb <= probeInRb or dOut(1);
+shutterOutRb <= shutterInRb or dOut(2);
+probeOutK <= probeInK or dOut(3);
+shutterOutK <= shutterInK or dOut(4);
+
+--
+-- Vertical imaging
+--
+probeOutV <= dOut(5);
+shutterOutV <= dOut(6);
+camTrigOutV <= camTrigInV or dOut(7);
+
+--
+-- Fluorescence imaging
+--
+probeOutF <= probeInF or dOut(9 downto 8);			--(MOT, Repump)
+shutterOutF <= shutterInF or dOut(11 downto 10);	--(MOT, Repump)
+
+--
+-- Trapping laser
+--
+trapLaserOut <= dOut(12);
+
+--
+-- Coil output
+--
+coilOut <= dOut(13);
+
+--
+-- State preparation
+--
+outMW <= inMW or dOut(14);
+outRF <= dOut(15);
+outPulseType <= dOut(16);
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
 
 FlexDDS: FlexDDSControl
 generic map(
@@ -205,13 +295,10 @@ port map(
 	dataReady 		=> 	dataReady,
 	numData 		=> 	numData,
 	numFlag			=>	dataFlag1(0),
-	pulseOut1		=>	pulseOut1,
-	pulseOut2		=>	pulseOut2,
-	pulseOut3		=>	pulseOut3
+	pulseOut1		=>	FlexDDSOut1,
+	pulseOut2		=>	FlexDDSOut2,
+	pulseOut3		=>	FlexDDSOut3
 )
-
-
-
 
 -------------------------------------------------------
 ------------  Serial command parsing  -----------------

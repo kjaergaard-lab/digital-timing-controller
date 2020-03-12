@@ -2,7 +2,7 @@ library IEEE;
 use ieee.std_logic_1164.all; 
 use ieee.numeric_std.ALL;
 use ieee.std_logic_unsigned.all; 
-use work.CustomTypes.all;
+use work.Constants.all;
 
 --Generates a pulse train given a period, pulse width, and number of pulses.  
 --This version is slightly different from versions older than 02/02/2018.

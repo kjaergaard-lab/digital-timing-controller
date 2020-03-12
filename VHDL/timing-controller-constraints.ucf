@@ -1,0 +1,84 @@
+NET "clk50x" LOC = "E12"| IOSTANDARD = LVCMOS33 ;
+NET "clkExt" LOC = "U12" | IOSTANDARD = LVCMOS33;
+
+
+
+NET "ledvec<7>" LOC = "W21" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<6>" LOC = "Y22" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<5>" LOC = "V20" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<4>" LOC = "V19" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<3>" LOC = "U19" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<2>" LOC = "U20" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<1>" LOC = "T19" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+NET "ledvec<0>" LOC = "R20" | IOSTANDARD = LVCMOS33 | SLEW = SLOW | DRIVE = 8 ;
+
+NET "RxD" LOC = "E16" ;
+NET "TxD" LOC = "F15" ;
+
+NET "seqTrigIn" 		LOC = "A8";
+NET "seqTrigEnable" 	LOC = "AA4";
+
+NET "probeInRb" 		LOC = "AB6";
+NET "shutterInRb" 	LOC = "AA10";
+NET "probeOutRb" 		LOC = "AA6";
+NET "shutterOutRb" 	LOC = "AB10";
+
+NET "probeInK" 		LOC = "B4";
+NET "shutterInK" 		LOC = "A4";
+NET "probeOutK" 		LOC = "A5";
+NET "shutterOutK" 	LOC = "B6";
+
+
+NET "camTrigOut" 		LOC = "AB2";
+NET "trapLaserOut" 	LOC = "AB3";
+NET "coilOut" 			LOC = "AA3";
+
+NET "inMW"				LOC = "AA8"	| IOSTANDARD = LVCMOS33 | PULLDOWN;
+NET "outMW" 			LOC = "AB8";
+NET "outRF" 			LOC = "Y7";
+NET "outPulseType" 	LOC = "AB7";
+
+
+NET "FlexDDSOut1" LOC = "A11";
+NET "FlexDDSOut2" LOC = "A9";
+NET "FlexDDSOut3" LOC = "A6";
+
+NET "probeOutV"	LOC = "A10";
+NET "shutterOutV"	LOC = "C10";
+NET "camTrigInV"	LOC = "A12";
+NET "camTrigOutV"	LOC = "A7";
+
+NET "probeInF[0]"		LOC = "V14"	|	PULLDOWN;
+NET "probeInF[1]"		LOC = "V15"	|	PULLDOWN;
+NET "probeOutF[0]"	LOC = "W16";
+NET "probeOutF[1]"	LOC = "V16";
+
+NET "shutterInF[0]"		LOC = "AA21"	|	PULLDOWN;
+NET "shutterInF[1]"		LOC = "AB21"	|	PULLDOWN;
+NET "shutterOutF[0]"		LOC = "AA19";
+NET "shutterOutF[1]"		LOC = "AB19";
+
+
+#NET "SDIN" LOC = "AB19";
+#NET "SCLK" LOC = "AA21";
+#NET "SYNC" LOC = "AB21";
+#NET "LDAC" LOC = "AA19";
+#
+#NET "ADC_SCLK" LOC = "V16";
+#NET "ADC_DIN" LOC = "W16";
+#NET "ADC_DOUT" LOC = "V14";
+#NET "ADC_DRDY" LOC = "V15";
+
+
+
+
+
+
+
+
+#NET "MW_pulse_in"	 PULLUP;
+#NET "din" LOC = "AB20";
+#NET "init" LOC = "V13";
+#
+#NET "rot_in(1)"   	LOC = "T13" | IOSTANDARD = LVCMOS33 | PULLUP   ;
+#NET "rot_in(0)"   	LOC = "R14" | IOSTANDARD = LVCMOS33 | PULLUP   ;
