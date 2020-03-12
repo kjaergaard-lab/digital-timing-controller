@@ -29,6 +29,8 @@ classdef TimingController < handle
         FPGA_SEQ_OUT = 1;
         FPGA_SEQ_IN = 2;
         
+        FPGA_ADDR_WIDTH = 11;
+        
     end
     
     
@@ -141,6 +143,9 @@ classdef TimingController < handle
                 end
             end
             data = data(1:numData,:);
+            if numData > (2^tc.FPGA_ADDR_WIDTH)
+                error('Number of instructions (%d) exceeds maximum number of instructions (%d)',numData,2^tc.FPGA_ADDR_WIDTH);
+            end
             tc.compiledData = data;
         end
         
