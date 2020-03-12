@@ -10,7 +10,7 @@ classdef TimingController < handle
         compiledData
     end
     
-    properties(Constant)
+    properties(Constant, Hidden = true)
         ID = 0;
         NUM_CHANNELS = 32;
         SER_PORT_DEFAULT = 'com3';

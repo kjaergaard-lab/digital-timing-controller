@@ -62,9 +62,14 @@ classdef TimingControllerChannel < handle
             N = ch.numValues;
         end
         
-        function ch = add(ch,time,value)
+        function ch = add(ch,time,value,timeUnit)
             if value~=0 && value~=1
                 error('Value must be either 0 or 1');
+            end
+            if nargin==4 && isnumeric(timeUnit)
+                time = time*timeUnit;
+            elseif nargin==4 && ischar(timeUnit)
+                time = time*ch.getTimeUnit(timeUnit);
             end
             time = round(time*TimingController.FPGA_SAMPLE_CLK)/TimingController.FPGA_SAMPLE_CLK;
             idx = find(ch.times==time,1,'first');
@@ -78,6 +83,17 @@ classdef TimingControllerChannel < handle
                 ch.values(idx,1) = value;
                 ch.times(idx,1) = time;
             end
+        end
+        
+        function ch = after(ch,delay,value,timeUnit)
+            if nargin==4 && isnumeric(timeUnit)
+                delay = delay*timeUnit;
+            elseif nargin==4 && ischar(timeUnit)
+                delay = delay*ch.getTimeUnit(timeUnit);
+            end
+            
+            time = ch.times(end)+delay;
+            ch.add(time,value);
         end
         
         function ch = reset(ch)
@@ -103,6 +119,23 @@ classdef TimingControllerChannel < handle
             plot(tplot,vplot,'.-');
         end
         
+    end
+    
+    methods(Static)
+        function scale = getTimeUnit(unit)
+            switch lower(unit)
+                case 'ns'
+                    scale = 1e-9;
+                case 'us'
+                    scale = 1e-6;
+                case 'ms'
+                    scale = 1e-3;
+                case 's'
+                    scale = 1;
+                otherwise
+                    error('Unit unknown');
+            end
+        end
     end
     
     

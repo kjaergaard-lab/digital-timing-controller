@@ -1,24 +1,28 @@
 classdef SpartanImagingController < TimingController
     properties
         %% Normal imaging channels
+        camTrig
         probeRb
         shutterRb
         probeK
         shutterK
-        camTrig
         
         %% Vertical imaging channels
-        camTrigV
         probeV
         shutterV
-        levitationCoil
+        camTrigV
         
         %% Fluorescence imaging
-        probeF
-        shutterF
+        probeRepumpF
+        probeMOTF
+        shutterRepumpF
+        shutterMOTF
         
         %% Laser control
         laser
+        
+        %% Coil control
+        coil
         
         %% State preparation
         mw
@@ -35,25 +39,34 @@ classdef SpartanImagingController < TimingController
         
         function sp = defineChannels(sp)
             %% Normal imaging channels
-            sp.probeRb = sp.findBit(0);
-            sp.shutterRb = sp.findBit(1);
-            sp.probeK = sp.findBit(2);
-            sp.shutterK = sp.findBit(3);
-            sp.camTrig = sp.findBit(4);
+            sp.camTrig = sp.findBit(0);
+            sp.probeRb = sp.findBit(1);
+            sp.shutterRb = sp.findBit(2);
+            sp.probeK = sp.findBit(3);
+            sp.shutterK = sp.findBit(4);
+            
             
             %% Vertical imaging channels
-            sp.camTrigV = sp.findBit(5);
-            sp.probeV = sp.findBit(6);
-            sp.shutterV = sp.findBit(7);
-            sp.levitationCoil = sp.findBit(8);
+            sp.probeV = sp.findBit(5);
+            sp.shutterV = sp.findBit(6);
+            sp.camTrigV = sp.findBit(7);
+            
+            %% Fluorescence imaging channels
+            sp.probeRepumpF = sp.findBit(8);
+            sp.probeMOTF = sp.findBit(9);
+            sp.shutterRepumpF = sp.findBit(10);
+            sp.shutterMOTF = sp.findBit(11);
             
             %% Laser control
-            sp.laser = sp.findBit(9);
+            sp.laser = sp.findBit(12);
+            
+            %% Coil control
+            sp.coil = sp.findBit(13);
             
             %% State preparation
-            sp.mw = sp.findBit(10);
-            sp.rf = sp.findBit(11);
-            sp.pulseType = sp.findBit(12);
+            sp.mw = sp.findBit(14);
+            sp.rf = sp.findBit(15);
+            sp.pulseType = sp.findBit(16);
             
         end
     
