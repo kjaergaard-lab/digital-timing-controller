@@ -69,6 +69,28 @@ classdef SpartanImagingController < TimingController
             sp.pulseType = sp.findBit(16);
             
         end
+        
+        function sp = plot(sp,offset)
+            if nargin < 2
+                offset = 0;
+            end
+            jj = 1;
+            p = properties(sp);
+            for nn = 1:numel(p)
+                ch = sp.(p{nn});
+                if ~isa(ch,'TimingControllerChannel') || numel(ch)>1
+                    continue;
+                end
+                ch.plot((jj-1)*offset);
+                hold on;
+                if ch.getNumValues > 0
+                    str{jj} = sprintf('%s (%d)',p{nn},ch.getBit);  %#ok<AGROW>
+                    jj = jj+1;
+                end
+            end
+            hold off;
+            legend(str);
+        end
     
     end
     

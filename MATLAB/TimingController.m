@@ -187,6 +187,22 @@ classdef TimingController < handle
             fwrite(tc.ser,tc.getDefaults,'uint32');
         end
         
+        function tc = plot(tc,offset)
+            jj = 1;
+            if nargin < 2
+                offset = 0;
+            end
+            for nn = 1:tc.NUM_CHANNELS
+                tc.channels(nn).plot((jj-1)*offset);
+                hold on;
+                if tc.channels(nn).getNumValues > 0
+                    str{jj} = sprintf('Ch %d',tc.channels(nn).getBit);  %#ok<AGROW>
+                end
+            end
+            hold off;
+            legend(str);
+        end
+        
     end
     
     

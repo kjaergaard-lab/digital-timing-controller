@@ -304,6 +304,9 @@ classdef SpartanImaging < handle
             if nargin < 2
                 idx = 1;
             end
+            tc = sp.controller;
+            tc.reset;
+            
             sp.controller.laser.on(0,1).after(sp.crossbeamOnTime(idx)+sp.additionalWaveguideOnTime(idx),0,'ms');
             if iscell(sp.probeType)
                 pt = sp.probeType{idx};
@@ -318,7 +321,7 @@ classdef SpartanImaging < handle
                 otherwise
                     error('Probe type %s not supported!',sp.probeType(idx));
             end
-            tc = sp.controller;
+            
             sp.pulses.makeSequences(tc.mw,tc.rf,tc.pulseType,idx);
             
         end

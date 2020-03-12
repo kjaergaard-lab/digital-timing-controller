@@ -49,16 +49,19 @@ classdef TimingControllerChannel < handle
             b = ch.bit;
         end
         
-        function v = getEvents(ch)
-            v = [ch.getTimes ch.getValues];
-        end
-        
-        function v = getValues(ch)
-            v = [ch.default;ch.values];
-        end
-        
-        function t = getTimes(ch)
-            t = [0;ch.times];
+        function [t,v] = getEvents(ch)
+            ch.check;
+            ch.sort;
+            if ch.numValues==0
+                t = 0;
+                v = ch.default;
+            elseif ch.times(1) == 0
+                t = ch.times;
+                v = ch.values;
+            else
+                t = [0;ch.times];
+                v = [ch.default;ch.values];
+            end
         end
         
         function N = getNumValues(ch)
@@ -149,10 +152,12 @@ classdef TimingControllerChannel < handle
         end
         
         function ch = plot(ch,offset)
-            [t,K] = sort(ch.times);
-            t = [0;t];
-            v = [ch.default;ch.values(K)];
+            [t,v] = ch.getEvents;
             tplot = sort([t;t-1/ch.parent.FPGA_SAMPLE_CLK]);
+            if numel(v)==1
+                fprintf(1,'No events on this channel (%d). Plot not generated.\n',ch.bit);
+                return
+            end
             vplot = interp1(t,v,tplot,'previous');
             if nargin==2
                 vplot = vplot+offset;
