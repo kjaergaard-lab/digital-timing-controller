@@ -9,21 +9,25 @@ use work.Constants.all;
 --This version does not have a synchronous trigger, and if Npulses=0
 --there is no delay of 1 period before trig_done is raised
 entity PulseGen is
-	port( clk	:	in	std_logic;	--50 MHz clock
-			period	:	in	integer;	--Period of pulses
-			pulse_width	:	integer;	--Width of pulses
-			trig	:	in	std_logic;	--Input trigger
+	generic(FIXED_DUTY	:	boolean	:=	true);
+	port( 	clk			:	in	std_logic;	--50 MHz clock
+			period		:	in	integer;	--Period of pulses
+			widthIn		:	integer;	--Width of pulses
+			trig		:	in	std_logic;	--Input trigger
 			trig_done	:	out	std_logic;	--Goes high when pulse sequence is finished
 			pulse_out	:	out	std_logic;	--Pulse output
-			Npulses	:	in	integer);	--Number of pulses
+			Npulses		:	in	integer);	--Number of pulses
 end PulseGen;
 
 architecture Behavioral of PulseGen is
 
-signal cnt	:	integer	:=	0;	--Counts clock edges
+signal cnt			:	integer	:=	0;	--Counts clock edges
 signal pulse_cnt	:	integer	:= 0;	--Counts number of pulses
+signal pulse_width	:	integer	:=	10;
 
 begin
+
+pulse_width <= period/2 when FIXED_DUTY else widthIn;
 
 --Generates pulse train
 PulseProcess: process(clk,trig) is

@@ -16,61 +16,47 @@ entity FlexDDSControl is
 			numData		:	in	std_logic_vector(31 downto 0);	--Numerical data
 			numFlag		:	inout std_logic;					--Flag to indicate that data is numerical
 			
-			pulseOut1	:	out	std_logic;							--
-			pulseOut2	:	out	std_logic;							--
-			pulseOut3	:	out	std_logic							--	
+			pulseOut	:	out	std_logic_vector(NUM_FLEX_TRIG-1 downto 0)
 			);
 end FlexDDSControl;
 
 architecture Behavioral of FlexDDSControl is
 
 component PulseGen is
-	port( clk	:	in	std_logic;
-			period	:	in	integer;
-			pulse_width	:	integer;
-			trig	:	in	std_logic;
-			trig_done	:	out	std_logic;
-			pulse_out	:	out	std_logic;
-			Npulses	:	in	integer);
+	generic(FIXED_DUTY	:	boolean	:=	true);
+	port( 	clk			:	in	std_logic;	--50 MHz clock
+			period		:	in	integer;	--Period of pulses
+			widthIn		:	integer;	--Width of pulses
+			trig		:	in	std_logic;	--Input trigger
+			trig_done	:	out	std_logic;	--Goes high when pulse sequence is finished
+			pulse_out	:	out	std_logic;	--Pulse output
+			Npulses		:	in	integer);	--Number of pulses
 end component;
 
 
-signal period1, period2, period3	:	integer	:=	200;
-signal width1, width2, width3		:	integer	:=	100;
-signal numPulses1, numPulses2, numPulses3		:	integer	:=	1000000;
+
+signal period	:	int_array(NUM_FLEX_TRIG-1 downto 0)	:=	(others => 200);
+signal pulseWidth:	int_array(NUM_FLEX_TRIG-1 downto 0)	:=	(others => 100);
+signal numPulses:	int_array(NUM_FLEX_TRIG-1 downto 0)	:=	(others => 1000000);
 
 begin
 
-width1 <= period1/2;
-width2 <= period2/2;
-width3 <= period3/2;
-
-FlexDDSTrig1: PulseGen port map(
-	clk => clk,
-	period => period1,
-	pulse_width	=> width1,
-	trig	=> trigIn,
-	trig_done => open,
-	pulse_out => pulseOut1,
-	Npulses => numPulses1);
-	
-FlexDDSTrig2: PulseGen port map(
-	clk => clk,
-	period => period2,
-	pulse_width	=> width2,
-	trig	=> trigIn,
-	trig_done => open,
-	pulse_out => pulseOut2,
-	Npulses => numPulses2);
-	
-FlexDDSTrig3: PulseGen port map(
-	clk => clk,
-	period => period3,
-	pulse_width	=> width3,
-	trig	=> trigIn,
-	trig_done => open,
-	pulse_out => pulseOut3,
-	Npulses => numPulses3);
+FlexDDSGenerate:
+for I in 0 to NUM_FLEX_TRIG-1 generate
+	FlexDDSTrigX: PulseGen
+		generic map(
+			FIXED_DUTY 	=> 	true
+		)
+		port map(
+			clk			=>	clk,
+			period		=>	period(I),
+			widthIn		=>	pulseWidth(I),
+			trig		=>	trigIn,
+			trig_done	=>	open,
+			pulse_out	=>	pulseOut(I),
+			Npulses		=>	numPulses(I)
+		);
+end generate FlexDDSGenerate;
 
 
 ------------------------------------------
@@ -82,14 +68,8 @@ begin
 		if dataReady = '1' then
 			if cmdData(31 downto 24) = ID then				
 				PulseSettings: case cmdData(7 downto 0) is
-					when X"00" => getParam(numFlag,numData,period1);		--FlexDDS period for trigger 1
-					when X"01" => getParam(numFlag,numData,numPulses1);	--FlexDDS number of pulses for trigger 1
-					
-					when X"02" => getParam(numFlag,numData,period2);		--FlexDDS period for trigger 2
-					when X"03" => getParam(numFlag,numData,numPulses2);	--FlexDDS number of pulses for trigger 2
-					
-					when X"04" => getParam(numFlag,numData,period3);		--FlexDDS period for trigger 3
-					when X"05" => getParam(numFlag,numData,numPulses3);	--FlexDDS number of pulses for trigger 3
+					when X"00" => getParam(numFlag,numData,period,cmdData(15 downto 8));		--FlexDDS period for triggers
+					when X"01" => getParam(numFlag,numData,numPulses,cmdData(15 downto 8));		--FlexDDS number of trigger pulses
 						
 					when others => null;
 				end case;

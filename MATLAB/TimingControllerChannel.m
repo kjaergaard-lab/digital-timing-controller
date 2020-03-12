@@ -14,6 +14,9 @@ classdef TimingControllerChannel < handle
         values
         times
         numValues
+        
+        %% Aux properties
+        lastTime
     end
     
     methods
@@ -62,26 +65,30 @@ classdef TimingControllerChannel < handle
             N = ch.numValues;
         end
         
-        function ch = add(ch,time,value,timeUnit)
-            if value~=0 && value~=1
-                error('Value must be either 0 or 1');
-            end
+        function ch = on(ch,time,value,timeUnit)
             if nargin==4 && isnumeric(timeUnit)
                 time = time*timeUnit;
             elseif nargin==4 && ischar(timeUnit)
                 time = time*ch.getTimeUnit(timeUnit);
             end
             time = round(time*TimingController.FPGA_SAMPLE_CLK)/TimingController.FPGA_SAMPLE_CLK;
+            
             idx = find(ch.times==time,1,'first');
+            if value~=0 && value~=1
+                error('Value must be either 0 or 1');
+            end
+            
             if isempty(idx)
                 N = ch.numValues+1;
                 ch.values(N,1) = value;
                 ch.times(N,1) = time;
                 ch.numValues = N;
+                ch.lastTime = time;
             else
-                warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
+%                 warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
                 ch.values(idx,1) = value;
                 ch.times(idx,1) = time;
+                ch.lastTime = time;
             end
         end
         
@@ -92,14 +99,41 @@ classdef TimingControllerChannel < handle
                 delay = delay*ch.getTimeUnit(timeUnit);
             end
             
-            time = ch.times(end)+delay;
-            ch.add(time,value);
+            time = ch.lastTime+delay;
+            ch.on(time,value);
+        end
+        
+        function ch = before(ch,delay,value,timeUnit)
+            if nargin==4 && isnumeric(timeUnit)
+                delay = delay*timeUnit;
+            elseif nargin==4 && ischar(timeUnit)
+                delay = delay*ch.getTimeUnit(timeUnit);
+            end
+            
+            time = ch.lastTime-delay;
+            ch.on(time,value);
+        end
+        
+        function ch = anchor(ch,time,timeUnit)
+            if nargin==3 && isnumeric(timeUnit)
+                time = time*timeUnit;
+            elseif nargin==3 && ischar(timeUnit)
+                time = time*ch.getTimeUnit(timeUnit);
+            end
+            
+            ch.lastTime = round(time*TimingController.FPGA_SAMPLE_CLK)/TimingController.FPGA_SAMPLE_CLK;
+        end
+        
+        function [time,value] = last(ch)
+            time = ch.times(end);
+            value = ch.values(end);
         end
         
         function ch = reset(ch)
             ch.times = [];
             ch.values = [];
             ch.numValues = 0;
+            ch.lastTime = [];
         end
         
         function ch = sort(ch)
@@ -108,15 +142,22 @@ classdef TimingControllerChannel < handle
             ch.values = ch.values(K);
         end
         
-        function ch = plot(ch)
+        function ch = check(ch)
+            if any(ch.times<0)
+                error('All times must be greater than 0 (no acausal events)!');
+            end
+        end
+        
+        function ch = plot(ch,offset)
             [t,K] = sort(ch.times);
             t = [0;t];
             v = [ch.default;ch.values(K)];
-%             tplot = 0:1/ch.parent.FPGA_SAMPLE_CLK:max(t);
-%             vplot = interp1(t,v,tplot,'previous');
             tplot = sort([t;t-1/ch.parent.FPGA_SAMPLE_CLK]);
             vplot = interp1(t,v,tplot,'previous');
-            plot(tplot,vplot,'.-');
+            if nargin==2
+                vplot = vplot+offset;
+            end
+            plot(tplot,vplot,'.-','linewidth',1.5);
         end
         
     end

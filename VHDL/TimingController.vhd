@@ -43,8 +43,6 @@ component BlockMemoryController is
 			dataOut			:	out	mem_data);
 end component;
 
-signal reset	:	std_logic	:=	'0';
-
 ------------------------------------------
 ----------   Memory Signals   ------------
 ------------------------------------------
@@ -142,19 +140,6 @@ begin
 			sampleTick <= '0';
 			sampleCount <= 0;
 		end if;
-		
---		if seqRunning = '1' or (trigIn = '1' and seqEnabled = '1') then	
---			if sampleCount < sampleTime then
---				sampleCount <= sampleCount + 1;
---				sampleTick <= '0';
---			else
---				sampleCount <= 0;
---				sampleTick <= '1';
---			end if;
---		else
---			sampleCount <= sampleTime;
---			sampleTick <= '0';
---		end if;
 	end if;
 end process;
 
@@ -162,7 +147,7 @@ end process;
 MainProcess: process(clk) is
 begin
 	if rising_edge(clk) then
-		if reset = '1' or seqStop = '1' then
+		if seqStop = '1' then
 			parseState <= 0;
 		else
 			MainFSM: case parseState is
@@ -183,23 +168,9 @@ begin
 					end if;
 
 				--
-				-- Wait for trigger or continue if sequence is running
-				--
-				when 1 =>
-	--				if seqDone = '1' then
-	--					memReadTrig <= '1';
-	--					seqDone <= '0';
-	--					parseState <= 0;
-	--					seqRunning <= '0';
-	--				else
-						memReadTrig <= '0';
-						parseState <= 2;
-	--				end if;
-
-				--
 				-- Parse instruction
 				--
-				when 2 =>
+				when 1 =>
 					if sampleTick = '1' and seqDone = '1' then
 						memReadTrig <= '1';
 						seqDone <= '0';
@@ -219,18 +190,18 @@ begin
 							when INSTR_WAIT =>
 								waitTime <= to_integer(unsigned(memReadData(31 downto 0)));	
 								delayCount <= 0;
-								parseState <= 3;					
+								parseState <= 2;					
 								
 							when INSTR_OUT =>
 								dOutSig <= memReadData(31 downto 0);
-								parseState <= 2;
+								parseState <= 1;
 								
 							-- when INSTR_IN =>
 							-- 	waitEnable <= '1';
 							-- 	waitForDigitalIn <= '1';
-							-- 	trigBit <= to_integer(unsigned(memReadData(7 downto 0)));
-							-- 	trigType <= to_integer(unsigned(memReadData(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
-							-- 	parseState <= 4;
+							-- 	trigBit <= memReadData(7 downto 0);
+							-- 	trigType <= memReadData(15 downto 8);
+							-- 	parseState <= 3;
 
 							when others => parseState <= 1;
 						end case;
@@ -241,12 +212,12 @@ begin
 				--
 				-- Delay state
 				--
-				when 3 =>
+				when 2 =>
 					memReadTrig <= '0';
 					if sampleTick = '1' and delayCount < (waitTime - 2) then
 						delayCount <= delayCount + 1;
 					elsif delayCount = (waitTime - 2) then
-						parseState <= 2;
+						parseState <= 1;
 					end if;
 						
 				-- --
@@ -324,20 +295,11 @@ begin
 						when X"03" =>
 							transmitTrig <= '1';
 							dataToSend <= dOutManual;
-						when X"04" =>
-							reset <= '1';
 						when others => null;
 					end case;	--end SoftTrigs
 				
 				--Manual digital outputs
 				when X"01" => getParam(dataFlag(0),numData,dOutManual);
---					if dataFlag(0) = '0' then
---						dataFlag(0) <= '1';
---					else
---						dataFlag(0) <= '0';
---						dOutManual <= numData;
---					end if;
-					
 				
 				--Memory uploading
 				when X"02" =>

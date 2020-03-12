@@ -88,6 +88,12 @@ classdef TimingController < handle
         end
         
         %%
+        function tc = reset(tc)
+            for nn=1:tc.NUM_CHANNELS
+                tc.channels(nn).reset;
+            end
+        end
+        
         function v = getDefaults(tc)
             v = 0;
             for nn=1:tc.NUM_CHANNELS
@@ -109,7 +115,7 @@ classdef TimingController < handle
             t = [];
             v = [];
             for nn=1:tc.NUM_CHANNELS
-                tc.channels(nn).sort;
+                tc.channels(nn).check.sort;
                 t = [t;tc.channels(nn).getTimes];   %#ok
                 v = [v;bitshift(tc.channels(nn).getValues,repmat(tc.channels(nn).getBit,tc.channels(nn).getNumValues+1,1))];    %#ok
             end

@@ -55,9 +55,7 @@ entity topmod is
 				outPulseType	:	out	std_logic;
 				
 				--FlexDDS triggers
-				FlexDDSOut1		:	out	std_logic;
-				FlexDDSOut2		:	out	std_logic;
-				FlexDDSOut3		:	out	std_logic
+				FlexDDSOut		:	out	std_logic_vector(NUM_FLEX_TRIG-1 downto 0)
 
 				-- dOut		:	out std_logic_vector(31 downto 0);
 				-- dIn			:	in	std_logic_vector(7 downto 0)
@@ -134,9 +132,7 @@ component FlexDDSControl is
 			numData		:	in	std_logic_vector(31 downto 0);	--Numerical data
 			numFlag		:	inout std_logic;					--Flag to indicate that data is numerical
 			
-			pulseOut1	:	out	std_logic;							--
-			pulseOut2	:	out	std_logic;							--
-			pulseOut3	:	out	std_logic							--	
+			pulseOut	:	out	std_logic_vector(NUM_FLEX_TRIG-1 downto 0)
 			);
 end component;
 
@@ -300,9 +296,7 @@ port map(
 	dataReady 		=> 	dataReady,
 	numData 		=> 	numData,
 	numFlag			=>	dataFlag1(0),
-	pulseOut1		=>	FlexDDSOut1,
-	pulseOut2		=>	FlexDDSOut2,
-	pulseOut3		=>	FlexDDSOut3
+	pulseOut		=>	FlexDDSOut
 );
 
 -------------------------------------------------------
