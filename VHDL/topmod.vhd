@@ -37,22 +37,22 @@ end component;
 -------------------------------------------------------
 component SerialCommunication
 	generic (baudPeriod	:	integer;				--Baud period appropriate for clk
-				numMemBytes	:	integer);			--Number of bytes in mem data			
+	numMemBytes	:	integer);				--Number of bytes in mem data			
 	port(	clk 				: 	in  std_logic;		--Clock signal
 
-			--Signals for reading from serial port
-			RxD				:	in	std_logic;												--Input RxD from a UART signal
-			cmdDataOut		:	out std_logic_vector(31 downto 0);					--32 bit command word
-			numDataOut		:	out integer;												--Numerical parameter
-			memDataOut		:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
-			dataFlag		:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
-			dataReady		:	out 	std_logic;											--Flag to indicate that data is valid
+	--Signals for reading from serial port
+	RxD				:	in	std_logic;									--Input RxD from a UART signal
+	cmdDataOut		:	out std_logic_vector(31 downto 0);				--32 bit command word
+	numDataOut		:	out std_logic_vector(31 downto 0);				--Numerical parameter
+	memDataOut		:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
+	dataFlag		:	in	std_logic_vector(1 downto 0);				--Indicates type of data (mem, num)
+	dataReady		:	out 	std_logic;								--Flag to indicate that data is valid
 
-			--Signals for transmitting on serial port
-			TxD				:	out std_logic;								--Serial transmit pin
-			dataIn			:	in  std_logic_vector(31 downto 0);	--Data to transmit
-			transmitTrig	:	in  std_logic;								--Trigger to start transmitting data
-			transmitBusy	:	out std_logic);							--Flag to indicate that a transmission is in progress
+	--Signals for transmitting on serial port
+	TxD				:	out std_logic;									--Serial transmit pin
+	dataIn			:	in  std_logic_vector(31 downto 0);				--Data to transmit
+	transmitTrig	:	in  std_logic;									--Trigger to start transmitting data
+	transmitBusy	:	out std_logic);									--Flag to indicate that a transmission is in progress
 end component;
 
 component TimingController is
@@ -84,17 +84,14 @@ signal clk100	:	std_logic;
 ----------------------Serial interface signals--------------------------------------
 ------------------------------------------------------------------------------------
 signal dataReady		:	std_logic	:=	'0';	--signal from ReadData that says new 32-bit word is ready
-signal cmdData			:	std_logic_vector(31 downto 0)	:=	(others => '0');	--command word
+signal cmdData, numData	:	std_logic_vector(31 downto 0)	:=	(others => '0');	--command word
 
 signal dataToSend		:	std_logic_vector(31 downto 0)	:=	(others => '0');
-signal transmitBusy	:	std_logic;
-signal transmitTrig	:	std_logic	:=	'0';
+signal transmitBusy		:	std_logic;
+signal transmitTrig		:	std_logic	:=	'0';
 
-signal autoFlag		:	std_logic	:= '1';	--Automatic or manual mode?
-signal numData			:	integer		:= 0;		--Numerical data from ReadData
-
-signal memData			:	std_logic_vector(8*MemBytes-1 downto 0)	:=	(others => '0');
-signal dataFlag		:	std_logic_vector(1 downto 0)	:=	"00";
+signal memData			:	mem_data	:=	(others => '0');
+signal dataFlag			:	std_logic_vector(1 downto 0)	:=	"00";
 
 
 
@@ -143,21 +140,22 @@ generic map(
 	ID => X"00"
 )
 PORT MAP(
-	clk => clk100,
-	cmdData => cmdData,
-	dataReady => dataReady,
-	numData => numData,
-	memData => memData,
-	dataFlag => dataFlag,
-	dataToSend => dataToSend,
-	trigIn	=>	trig,
-	auxOut => open,
-	dOut => dOut,
-	dIn => dIn
+	clk 			=> clk100,
+	cmdData 		=> cmdData,
+	dataReady 		=> dataReady,
+	numData 		=> numData,
+	memData 		=> memData,
+	dataFlag 		=> dataFlag,
+	dataToSend 		=> dataToSend,
+	transmitTrig	=>	transmitTrig,
+	trigIn			=>	trig,
+	auxOut 			=> open,
+	dOut 			=> dOut,
+	dIn 			=> dIn
 ); 
   
 
-ledvec <= cmdData(31 downto 24);
+-- ledvec <= cmdData(31 downto 24);
 
 --
 -- Input trigger synchronization
@@ -166,10 +164,14 @@ InputTrigSync: process(clk) is
 begin
 	if rising_edge(clk) then
 		trigSync <= (trigSync(0) & trigIn);
+		if ((trigSync(0) & trigIn) = "01") and trigEnable = '1' then
+			trig <= '1';
+		else
+			trig <= '0';
+		end if;
+		
 	end if;
 end process;
-
-trig <= '1' when trigSync = "01" and trigEnable = '1' else '0';
 
 
 -------------------------------------------------------

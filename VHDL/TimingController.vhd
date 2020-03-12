@@ -6,15 +6,15 @@ use work.Constants.all;
 
 
 entity TimingController is
-	generic(	ID	:	std_logic_vector(7 downto 0));
-	port(	clk			:	in	std_logic;
+	generic(ID				:	std_logic_vector(7 downto 0));
+	port(	clk				:	in	std_logic;
 			
 			--Serial data signals
 			cmdData			:	in	std_logic_vector(31 downto 0);
 			dataReady		:	in	std_logic;
-			numData			:	in	integer;
+			numData			:	in	std_logic_vector(31 downto 0);
 			memData			:	in	mem_data;
-			dataFlag		:	inout	std_logic_vector(1 downto 0);
+			dataFlag			:	inout	std_logic_vector(1 downto 0) := "00";
 			
 			dataToSend		:	out std_logic_vector(31 downto 0);
 			transmitTrig	:	out std_logic;
@@ -34,7 +34,7 @@ component BlockMemoryController is
 			--Write signals
 			memWriteTrig	:	in	std_logic;
 			memWriteAddr	:	in	mem_addr;
-			dataIn			:	in	mem_data
+			dataIn			:	in	mem_data;
 			
 			--Read signals
 			memReadTrig		:	in	std_logic;
@@ -43,6 +43,7 @@ component BlockMemoryController is
 			dataOut			:	out	mem_data);
 end component;
 
+signal reset	:	std_logic	:=	'0';
 
 ------------------------------------------
 ----------   Memory Signals   ------------
@@ -58,11 +59,11 @@ signal memDataValid					:	std_logic	:=	'0';
 ------------------------------------------------------------------------------------
 constant sampleTime	:	integer range 0 to 4	:=	4;
 signal sampleCount	:	integer range 0 to 4	:=	0;
-signal sampleTrig	:	std_logic	:=	'0';
+signal sampleTick		:	std_logic	:=	'0';
 
-signal seqState		:	integer range 0 to 2	:=	0;
-signal seqStart, seqStop, seqEnable, seqRunning, seqDone	:	std_logic	:=	'0';
 
+signal seqEnabled, seqRunning, seqDone	:	std_logic	:=	'0';
+signal seqStart, seqStop	:	std_logic	:=	'0';
 
 -----------------------------------------------------
 ----------   Parse Instruction Signals   ------------
@@ -71,7 +72,7 @@ constant INSTR_WAIT	:	std_logic_vector(7 downto 0)	:=	X"00";
 constant INSTR_OUT	:	std_logic_vector(7 downto 0)	:=	X"01";
 constant INSTR_IN	:	std_logic_vector(7 downto 0)	:=	X"02";
 
-signal parseState	:	integer range 0 to 1	:=	0;
+signal parseState	:	integer range 0 to 7	:=	0;
 
 
 ----------------------------------------------
@@ -102,7 +103,7 @@ signal dOutManual	:	digital_output_bank	:=	(others => '0');
 begin
 
 TimingMemory: BlockMemoryController PORT MAP(
-	clk 			=> clk100,
+	clk 			=> clk,
 	memWriteTrig 	=> memWriteTrig,
 	memWriteAddr 	=> memWriteAddr,
 	dataIn 			=> memWriteData,
@@ -115,7 +116,7 @@ TimingMemory: BlockMemoryController PORT MAP(
 dOut <= dOutSig when seqRunning = '1' else dOutManual;
 
 -- auxOut(0) <= masterEnable;
--- auxOut(1) <= sampleTrig;
+-- auxOut(1) <= sampleTick;
 -- auxOut(2) <= waitEnable;
 -- auxOut(3) <= seqStart;
 -- auxOut(5 downto 4) <= dataFlag;
@@ -127,18 +128,33 @@ dOut <= dOutSig when seqRunning = '1' else dOutManual;
 SampleGenerator: process(clk) is
 begin
 	if rising_edge(clk) then
-		if seqRunning = '1' or (trigIn = '1' and seqEnabled = '1') then	
-			if sampleCount < sampleTime then
-				sampleCount <= sampleCount + 1;
-				sampleTrig <= '0';
+		if sampleCount = 0 then
+			if seqRunning = '1' or (trigIn = '1' and seqEnabled = '1') then
+				sampleCount <= 1;
+				sampleTick <= '1';
 			else
-				sampleCount <= 0;
-				sampleTrig <= '1';
+				sampleTick <= '0';
 			end if;
+		elsif sampleCount < (sampleTime-1) then
+			sampleTick <= '0';
+			sampleCount <= sampleCount + 1;
 		else
-			sampleCount <= sampleTime;
-			sampleTrig <= '0';
+			sampleTick <= '0';
+			sampleCount <= 0;
 		end if;
+		
+--		if seqRunning = '1' or (trigIn = '1' and seqEnabled = '1') then	
+--			if sampleCount < sampleTime then
+--				sampleCount <= sampleCount + 1;
+--				sampleTick <= '0';
+--			else
+--				sampleCount <= 0;
+--				sampleTick <= '1';
+--			end if;
+--		else
+--			sampleCount <= sampleTime;
+--			sampleTick <= '0';
+--		end if;
 	end if;
 end process;
 
@@ -150,7 +166,7 @@ begin
 		seqEnabled <= '0';
 		seqRunning <= '0';
 		seqDone <= '0';
-	elsif rising_edge(clk) and (seqStop = '1' or seqDone = '1') then
+	elsif rising_edge(clk) and seqStop = '1' then
 		seqRunning <= '0';
 		parseState <= 0;
 		seqEnabled <= '0';
@@ -177,25 +193,32 @@ begin
 			-- Wait for trigger or continue if sequence is running
 			--
 			when 1 =>
-				memReadTrig <= '0';
-				if seqDone = '1' then
-					parseState <= 0;
-				else
+--				if seqDone = '1' then
+--					memReadTrig <= '1';
+--					seqDone <= '0';
+--					parseState <= 0;
+--					seqRunning <= '0';
+--				else
+					memReadTrig <= '0';
 					parseState <= 2;
-				end if;
+--				end if;
 
 			--
 			-- Parse instruction
 			--
 			when 2 =>
-				if sampleTick = '1' then
+				if sampleTick = '1' and seqDone = '1' then
+					memReadTrig <= '1';
+					seqDone <= '0';
+					parseState <= 1;
+					seqRunning <= '0';
+				elsif sampleTick = '1' then
 					if memReadAddr < maxMemAddr then
 						memReadTrig <= '1';
 						memReadAddr <= memReadAddr + X"1";
 						seqRunning <= '1';
 					else
 						memReadAddr <= (others => '0');
-						seqRunning <= '0';
 						seqDone <= '1';
 					end if;
 
@@ -207,7 +230,7 @@ begin
 							
 						when INSTR_OUT =>
 							dOutSig <= memReadData(31 downto 0);
-							parseState <= 1;
+							parseState <= 2;
 							
 						-- when INSTR_IN =>
 						-- 	waitEnable <= '1';
@@ -216,8 +239,10 @@ begin
 						-- 	trigType <= to_integer(unsigned(memReadData(8*(MemBytes-1)-1 downto 8*(MemBytes-2))));
 						-- 	parseState <= 4;
 
-						when others => null;
+						when others => parseState <= 1;
 					end case;
+				else
+					memReadTrig <= '0';
 				end if;
 
 			--
@@ -225,9 +250,9 @@ begin
 			--
 			when 3 =>
 				memReadTrig <= '0';
-				if sampleTick = '1' and delayCount < (waitTime - 1) then
+				if sampleTick = '1' and delayCount < (waitTime - 2) then
 					delayCount <= delayCount + 1;
-				elsif sampleTick = '1' then
+				elsif delayCount = (waitTime - 2) then
 					parseState <= 2;
 				end if;
 					
@@ -300,11 +325,13 @@ begin
 						when X"01" => seqStop <= '1';
 						when X"02" =>
 							transmitTrig <= '1';
-							dataToSend(31) <= masterEnable;
-							dataToSend(AddrWidth-1 downto 0) <= std_logic_vector(memReadAddr);
+							dataToSend(31 downto 30) <= (seqEnabled & seqRunning);
+							dataToSend(MEM_ADDR_WIDTH-1 downto 0) <= std_logic_vector(memReadAddr);
 						when X"03" =>
 							transmitTrig <= '1';
 							dataToSend <= dOutManual;
+						when X"04" =>
+							reset <= '1';
 						when others => null;
 					end case;	--end SoftTrigs
 				
@@ -314,21 +341,21 @@ begin
 						dataFlag(0) <= '1';
 					else
 						dataFlag(0) <= '0';
-						dOutManual <= std_logic_vector(to_signed(numData,32));
+						dOutManual <= numData;
 					end if;
 					
 				
 				--Memory uploading
 				when X"02" =>
 					if dataFlag(1) = '0' then
-						maxMemAddr <= unsigned(cmdData(AddrWidth-1 downto 0));
+						maxMemAddr <= unsigned(cmdData(MEM_ADDR_WIDTH-1 downto 0));
 						memWriteAddr <= (others => '0');
 						dataFlag(1) <= '1';
 					elsif dataFlag(1) = '1' and memWriteAddr < maxMemAddr then
-						dataToWrite <= memData;
+						memWriteData <= memData;
 						memWriteTrig <= '1';
 					elsif dataFlag(1) = '1' and memWriteAddr >= maxMemAddr then
-						dataToWrite <= memData;
+						memWriteData <= memData;
 						memWriteTrig <= '1';
 						dataFlag(1) <= '0';
 					end if;
@@ -345,6 +372,7 @@ begin
 			seqStart <= '0';
 			seqStop <= '0';
 			transmitTrig <= '0';
+			reset <= '0';
 		end if;	--end dataReady
 	end if;	--end rising_edge(clk)
 end process;

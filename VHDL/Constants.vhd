@@ -33,6 +33,9 @@ subtype mem_data is std_logic_vector(8*NUM_MEM_BYTES-1 downto 0);
 subtype mem_addr is unsigned(MEM_ADDR_WIDTH-1 downto 0);
 subtype digital_output_bank is std_logic_vector(31 downto 0);
 
+type mem_data_array is array (integer range <>) of mem_data;
+-- type ser_data_array is array (integer range <>) of std_logic_vector(31 downto 0);
+
 --
 -- Declare functions and procedure
 --

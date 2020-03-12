@@ -8,14 +8,14 @@ entity ReadData is
 	generic(	baudPeriod	:	integer;
 				numMemBytes	:	integer);
 				
-	port(	clk 			:	in std_logic;												--Clock
-			dataIn		:	in	std_logic_vector(7 downto 0);						--1 byte of data from UART_receiver
-			byteReady	:	in	std_logic;												--Signal to tell if byte is valid
+	port(	clk 		:	in std_logic;									--Clock
+			dataIn		:	in	std_logic_vector(7 downto 0);				--1 byte of data from UART_receiver
+			byteReady	:	in	std_logic;									--Signal to tell if byte is valid
 			cmdDataOut	:	out	std_logic_vector(31 downto 0);				--32 bit command word
-			numDataOut	:	out integer;												--Numerical parameter
+			numDataOut	:	out std_logic_vector(31 downto 0);				--Numerical parameter
 			memDataOut	:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
-			dataFlag		:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
-			dataReady	:	out std_logic);											--Indicates data is ready
+			dataFlag	:	in	std_logic_vector(1 downto 0);				--Indicates type of data (mem, num)
+			dataReady	:	out std_logic);									--Indicates data is ready
 end ReadData;
 
 architecture Behavioral of ReadData is
@@ -67,7 +67,7 @@ begin
 						if dataFlag(0) = '0' then
 							cmdDataOut <= data(8*numBytes-1 downto 0);
 						else
-							numDataOut <= to_integer(signed(data(8*numBytes-1 downto 0)));
+							numDataOut <= data(8*numBytes-1 downto 0);
 						end if;
 					end if;
 				else

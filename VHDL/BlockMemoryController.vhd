@@ -9,7 +9,7 @@ entity BlockMemoryController is
 			--Write signals
 			memWriteTrig	:	in	std_logic;
 			memWriteAddr	:	in	mem_addr;
-			dataIn			:	in	mem_data
+			dataIn			:	in	mem_data;
 			
 			--Read signals
 			memReadTrig		:	in	std_logic;
@@ -34,7 +34,7 @@ END COMPONENT;
 
 signal memEnable				:	std_logic	:=	'0';
 signal memWriteEnable			:	std_logic_vector(0 downto 0)	:=	"0";
-signal memAddrIn				:	std_logic_vector(AddrWidth-1 downto 0)	:=	(others => '0');
+signal memAddrIn				:	std_logic_vector(MEM_ADDR_WIDTH-1 downto 0)	:=	(others => '0');
 signal memDataOut, memDataIn	:	mem_data;
 
 signal memState					:	integer range 0 to 4	:=	0;

@@ -7,22 +7,22 @@ use ieee.std_logic_unsigned.all;
 --Assumes that there are 8 data bits, 1 start bit, 1 stop bit, and no parity bits
 entity SerialCommunication is
 	generic (baudPeriod	:	integer;				--Baud period appropriate for clk
-				numMemBytes	:	integer);			--Number of bytes in mem data			
+			numMemBytes	:	integer);				--Number of bytes in mem data			
 	port(	clk 				: 	in  std_logic;		--Clock signal
 
 			--Signals for reading from serial port
-			RxD				:	in	std_logic;												--Input RxD from a UART signal
-			cmdDataOut		:	out std_logic_vector(31 downto 0);					--32 bit command word
-			numDataOut		:	out integer;												--Numerical parameter
+			RxD				:	in	std_logic;									--Input RxD from a UART signal
+			cmdDataOut		:	out std_logic_vector(31 downto 0);				--32 bit command word
+			numDataOut		:	out std_logic_vector(31 downto 0);				--Numerical parameter
 			memDataOut		:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
-			dataFlag			:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
-			dataReady		:	out 	std_logic;											--Flag to indicate that data is valid
+			dataFlag		:	in	std_logic_vector(1 downto 0);				--Indicates type of data (mem, num)
+			dataReady		:	out 	std_logic;								--Flag to indicate that data is valid
 
 			--Signals for transmitting on serial port
-			TxD				:	out std_logic;								--Serial transmit pin
-			dataIn			:	in  std_logic_vector(31 downto 0);	--Data to transmit
-			transmitTrig	:	in  std_logic;								--Trigger to start transmitting data
-			transmitBusy	:	out std_logic);							--Flag to indicate that a transmission is in progress
+			TxD				:	out std_logic;									--Serial transmit pin
+			dataIn			:	in  std_logic_vector(31 downto 0);				--Data to transmit
+			transmitTrig	:	in  std_logic;									--Trigger to start transmitting data
+			transmitBusy	:	out std_logic);									--Flag to indicate that a transmission is in progress
 end SerialCommunication;
 
 architecture Behavioral of SerialCommunication is
@@ -52,14 +52,14 @@ component ReadData
 	generic(	baudPeriod	:	integer;
 				numMemBytes	:	integer);
 				
-	port(	clk 			:	in std_logic;												--Clock
-			dataIn		:	in	std_logic_vector(7 downto 0);						--1 byte of data from UART_receiver
-			byteReady	:	in	std_logic;												--Signal to tell if byte is valid
+	port(	clk 			:	in std_logic;								--Clock
+			dataIn		:	in	std_logic_vector(7 downto 0);				--1 byte of data from UART_receiver
+			byteReady	:	in	std_logic;									--Signal to tell if byte is valid
 			cmdDataOut	:	out	std_logic_vector(31 downto 0);				--32 bit command word
-			numDataOut	:	out integer;												--Numerical parameter
+			numDataOut	:	out std_logic_vector(31 downto 0);				--Numerical parameter
 			memDataOut	:	out std_logic_vector(8*numMemBytes-1 downto 0);	--Data for memory
-			dataFlag		:	in	std_logic_vector(1 downto 0);						--Indicates type of data (mem, num)
-			dataReady	:	out std_logic);											--Indicates data is ready
+			dataFlag		:	in	std_logic_vector(1 downto 0);			--Indicates type of data (mem, num)
+			dataReady	:	out std_logic);									--Indicates data is ready
 end component;
 
 
