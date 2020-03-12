@@ -13,6 +13,10 @@ classdef SpartanImagingController < TimingController
         shutterV
         levitationCoil
         
+        %% Fluorescence imaging
+        probeF
+        shutterF
+        
         %% Laser control
         laser
         

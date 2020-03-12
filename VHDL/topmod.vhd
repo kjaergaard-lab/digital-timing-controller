@@ -77,8 +77,25 @@ component TimingController is
 			dIn		:	in	std_logic_vector(7 downto 0));
 end component;
 
+component FlexDDSControl is
+	generic( ID			:	std_logic_vector(7 downto 0));
+	
+	port(	clk			:	in	std_logic;						--Input clock
+			trigIn		:	in	std_logic;						--Input trigger (high for 1 cycle)
+	
+			dataReady	:	in	std_logic;						--New data is valid
+			cmdData		:	in	std_logic_vector(31 downto 0);	--Command data
+			numData		:	in	std_logic_vector(31 downto 0);	--Numerical data
+			numFlag		:	inout std_logic;					--Flag to indicate that data is numerical
+			
+			pulseOut1	:	out	std_logic;							--
+			pulseOut2	:	out	std_logic;							--
+			pulseOut3	:	out	std_logic							--	
+			);
+end component;
 
-signal clk100	:	std_logic;
+
+signal clk	:	std_logic;
 
 ------------------------------------------------------------------------------------
 ----------------------Serial interface signals--------------------------------------
@@ -91,7 +108,7 @@ signal transmitBusy		:	std_logic;
 signal transmitTrig		:	std_logic	:=	'0';
 
 signal memData			:	mem_data	:=	(others => '0');
-signal dataFlag			:	std_logic_vector(1 downto 0)	:=	"00";
+signal dataFlag, dataFlag0, dataFlag1, dataFlagFF	:	std_logic_vector(1 downto 0)	:=	"00";
 
 
 
@@ -110,16 +127,19 @@ begin
 -------------------------------------------------------
 Inst_dcm1: DCM1 port map (
 	CLK_IN1 => clk100x,
-	CLK_OUT1 => clk100);
+	CLK_OUT1 => clk);
 	
 -------------------------------------------------------
 ----------  Serial Communication Components  ----------
 -------------------------------------------------------
+
+dataFlag <= dataFlag0 or dataFlag1 or dataFlagFF;
+
 SerialCommunication_inst: SerialCommunication 
 generic map(baudPeriod => BaudPeriod,
 				numMemBytes => MemBytes)
 port map(
-	clk => clk100,
+	clk => clk,
 	
 	RxD => RxD,
 	cmdDataOut => cmdData,
@@ -133,29 +153,6 @@ port map(
 	transmitTrig => transmitTrig,
 	transmitBusy => transmitBusy);
 	
-	
-
-TimingControl: TimingController 
-generic map(
-	ID => X"00"
-)
-PORT MAP(
-	clk 			=> clk100,
-	cmdData 		=> cmdData,
-	dataReady 		=> dataReady,
-	numData 		=> numData,
-	memData 		=> memData,
-	dataFlag 		=> dataFlag,
-	dataToSend 		=> dataToSend,
-	transmitTrig	=>	transmitTrig,
-	trigIn			=>	trig,
-	auxOut 			=> open,
-	dOut 			=> dOut,
-	dIn 			=> dIn
-); 
-  
-
--- ledvec <= cmdData(31 downto 24);
 
 --
 -- Input trigger synchronization
@@ -164,7 +161,7 @@ InputTrigSync: process(clk) is
 begin
 	if rising_edge(clk) then
 		trigSync <= (trigSync(0) & trigIn);
-		if ((trigSync(0) & trigIn) = "01") and trigEnable = '1' then
+		if (((trigSync(0) & trigIn) = "01") and trigEnable = '1') or startTrig = '1' then
 			trig <= '1';
 		else
 			trig <= '0';
@@ -172,21 +169,64 @@ begin
 		
 	end if;
 end process;
+	
+
+--
+-- Main digital timing controller
+--
+TimingControl: TimingController 
+generic map(
+	ID => X"00"
+)
+PORT MAP(
+	clk 			=> 	clk,
+	cmdData 		=> 	cmdData,
+	dataReady 		=> 	dataReady,
+	numData 		=> 	numData,
+	memData 		=> 	memData,
+	dataFlag 		=> 	dataFlag0,
+	dataToSend 		=> 	dataToSend,
+	transmitTrig	=>	transmitTrig,
+	trigIn			=>	trig,
+	auxOut 			=> 	open,
+	dOut 			=> 	dOut,
+	dIn 			=> 	dIn
+); 
+  
+
+FlexDDS: FlexDDSControl
+generic map(
+	ID	=>	X"01"
+)
+port map(
+	clk				=>	clk,
+	trigIn			=>	trig,
+	cmdData 		=> 	cmdData,
+	dataReady 		=> 	dataReady,
+	numData 		=> 	numData,
+	numFlag			=>	dataFlag1(0),
+	pulseOut1		=>	pulseOut1,
+	pulseOut2		=>	pulseOut2,
+	pulseOut3		=>	pulseOut3
+)
+
+
 
 
 -------------------------------------------------------
 ------------  Serial command parsing  -----------------
 -------------------------------------------------------
---auto_flag <= not(cmd_data(31));
---
---ReadProcess: process(clk100) is
---begin
---	if rising_edge(clk100) then
---		if data_ready = '1' then
---
---		end if;	--End data_ready if statement
---	end if;
---end process;
+
+TopLevelSerialParsing: process(clk) is
+begin
+	if rising_edge(clk) then
+		if dataReady = '1' and cmdData(31 downto 24) = "FF" then
+			startTrig <= '1';
+		else
+			startTrig <= '0';
+		end if;
+	end if;
+end process;
 	
 
 

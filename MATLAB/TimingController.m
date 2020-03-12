@@ -3,15 +3,19 @@ classdef TimingController < handle
         %% Channel properties
         channels
         
-        %%
+        %% Serial port properties
         ser         %serial object
+        comPort     %Serial com port
+        
         compiledData
     end
     
     properties(Constant)
+        ID = 0;
         NUM_CHANNELS = 32;
         SER_PORT_DEFAULT = 'com3';
         SER_PORT_BAUDRATE = 115200;
+        SER_PORT_BUFFER_SIZE = 2^10;
         FPGA_SAMPLE_CLK = 20e6;            %In Hz
         
         FPGA_COMMAND_STOP = 0;
@@ -37,10 +41,51 @@ classdef TimingController < handle
             end
         end
         
-        function tc = open(tc)
-            
+        %% Serial port functions
+        function open(tc)
+            %OPEN Opens a serial port
+            %   Uses the servo.comPort and servo.BAUD_RATE properties to
+            %   open a serial port.  Checks for already open or existing
+            %   interfaces and uses those if they exist.
+            if isempty(tc.comPort)
+                tc.comPort = tc.SER_PORT_DEFAULT;
+            end
+            if isa(tc.ser,'serial') && isvalid(tc.ser) && strcmpi(tc.ser.port,tc.comPort)
+                if strcmpi(tc.ser.status,'closed')
+                    fopen(tc.ser);
+                end
+                return
+            else
+                r = instrfindall('type','serial','port',upper(tc.comPort));
+                if isempty(r)
+                    tc.ser=serial(tc.comPort,'baudrate',tc.SER_PORT_BAUDRATE);
+                    tc.ser.OutputBufferSize = tc.SER_PORT_BUFFER_SIZE;
+                    tc.ser.InputBufferSize = tc.SER_PORT_BUFFER_SIZE;
+                    fopen(tc.ser);
+                elseif strcmpi(r.status,'open')
+                    tc.ser = r;
+                else
+                    tc.ser = r;
+                    tc.ser.OutputBufferSize = tc.SER_PORT_BUFFER_SIZE;
+                    tc.ser.InputBufferSize = tc.SER_PORT_BUFFER_SIZE;
+                    fopen(tc.ser);
+                end   
+            end
         end
         
+        function close(sv)
+            %CLOSE Closes the serial port
+            %   Closes and deletes the serial port associated with the
+            %   servo controller.
+            if isa(sv.ser,'serial') && isvalid(sv.ser) && strcmpi(sv.ser.port,sv.comPort)
+                if strcmpi(sv.ser.status,'open')
+                    fclose(sv.ser);
+                end
+                delete(sv.ser);
+            end
+        end
+        
+        %%
         function v = getDefaults(tc)
             v = 0;
             for nn=1:tc.NUM_CHANNELS
@@ -63,8 +108,8 @@ classdef TimingController < handle
             v = [];
             for nn=1:tc.NUM_CHANNELS
                 tc.channels(nn).sort;
-                t = [t;tc.channels(nn).getTimes];
-                v = [v;bitshift(tc.channels(nn).getValues,repmat(tc.channels(nn).getBit,tc.channels(nn).getNumValues+1,1))];
+                t = [t;tc.channels(nn).getTimes];   %#ok
+                v = [v;bitshift(tc.channels(nn).getValues,repmat(tc.channels(nn).getBit,tc.channels(nn).getNumValues+1,1))];    %#ok
             end
             [t,k] = sort(round(t*tc.FPGA_SAMPLE_CLK));
             v = v(k);
@@ -100,17 +145,31 @@ classdef TimingController < handle
         end
         
         function tc = upload(tc)
-            tc.open;
-            fwrite(tc.ser,tc.FPGA_COMMAND_STOP,'uint32');
-            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
-            fwrite(tc.ser,tc.getDefaults,'uint32');
-            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');
+            tc.stop;
+            tc.writeDefaults;
+            fwrite(tc.ser,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');   %Note the size - 1
             for nn=1:size(tc.compiledData,1)
                 fwrite(tc.ser,uint32(tc.compiledData(nn,1)),'uint8');
                 fwrite(tc.ser,uint32(tc.compiledData(nn,2)),'uint32');
             end
-            
         end
+        
+        function tc = start(tc)
+            tc.open;
+            fwrite(tc.ser,tc.FPGA_COMMAND_START,'uint32');
+        end
+        
+        function tc = stop(tc)
+            tc.open;
+            fwrite(tc.ser,tc.FPGA_COMMAND_STOP,'uint32');
+        end
+        
+        function tc = writeDefaults(tc)
+            tc.open;
+            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
+            fwrite(tc.ser,tc.getDefaults,'uint32');
+        end
+        
     end
     
     
