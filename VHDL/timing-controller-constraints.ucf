@@ -39,9 +39,9 @@ NET "outRF" 			LOC = "Y7";
 NET "outPulseType" 	LOC = "AB7";
 
 
-NET "FlexDDSOut1" LOC = "A11";
-NET "FlexDDSOut2" LOC = "A9";
-NET "FlexDDSOut3" LOC = "A6";
+NET "FlexDDSOut[0]" LOC = "A11";
+NET "FlexDDSOut[1]" LOC = "A9";
+NET "FlexDDSOut[2]" LOC = "A6";
 
 NET "probeOutV"	LOC = "A10";
 NET "shutterOutV"	LOC = "C10";

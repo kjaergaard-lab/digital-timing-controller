@@ -43,8 +43,6 @@ component BlockMemoryController is
 			dataOut			:	out	mem_data);
 end component;
 
-signal reset	:	std_logic	:=	'0';
-
 ------------------------------------------
 ----------   Memory Signals   ------------
 ------------------------------------------
@@ -162,7 +160,7 @@ end process;
 MainProcess: process(clk) is
 begin
 	if rising_edge(clk) then
-		if reset = '1' or seqStop = '1' then
+		if seqStop = '1' then
 			parseState <= 0;
 		else
 			MainFSM: case parseState is
@@ -324,8 +322,6 @@ begin
 						when X"03" =>
 							transmitTrig <= '1';
 							dataToSend <= dOutManual;
-						when X"04" =>
-							reset <= '1';
 						when others => null;
 					end case;	--end SoftTrigs
 				

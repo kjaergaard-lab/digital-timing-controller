@@ -28,6 +28,8 @@ constant BAUD_PERIOD		:	integer	:= 868;	--With a 100 MHz clock, corresponds to 1
 constant NUM_MEM_BYTES		:	integer	:=	5;
 constant MEM_ADDR_WIDTH     :	integer	:=	11;
 
+constant NUM_FLEX_TRIG		:	integer	:=	3;
+
 type int_array is array (integer range <>) of integer;
 subtype mem_data is std_logic_vector(8*NUM_MEM_BYTES-1 downto 0);
 subtype mem_addr is unsigned(MEM_ADDR_WIDTH-1 downto 0);
