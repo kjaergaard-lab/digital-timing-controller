@@ -187,6 +187,10 @@ classdef TimingController < handle
             fwrite(tc.ser,tc.getDefaults,'uint32');
         end
         
+        function tc = writeManual(tc,v)
+            
+        end
+        
         function tc = plot(tc,offset)
             jj = 1;
             if nargin < 2

@@ -165,6 +165,11 @@ classdef TimingControllerChannel < handle
             plot(tplot,vplot,'.-','linewidth',1.5);
         end
         
+        function ch = write(ch,v)
+            v = 1*(v~=0);
+            
+        end
+        
     end
     
     methods(Static)
