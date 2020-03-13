@@ -182,13 +182,22 @@ classdef TimingController < handle
         end
         
         function tc = writeDefaults(tc)
+            tc.writeManual(tc.getDefaults);
+        end
+        
+        function r = readManual(tc)
             tc.open;
-            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
-            fwrite(tc.ser,tc.getDefaults,'uint32');
+            fwrite(tc.ser,tc.FPGA_COMMAND_READ_MANUAL,'uint32');
+            while tc.ser.BytesAvailable~=4
+                pause(10e-3);
+            end
+            r = fread(tc.ser,1,'uint32');
         end
         
         function tc = writeManual(tc,v)
-            
+            tc.open;
+            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
+            fwrite(tc.ser,uint32(v),'uint32');
         end
         
         function tc = plot(tc,offset)

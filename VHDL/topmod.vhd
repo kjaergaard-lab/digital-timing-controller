@@ -117,8 +117,8 @@ component TimingController is
 			
 			--Physical signals
 			trigIn	:	in std_logic;
-			dOut	:	out std_logic_vector(31 downto 0);
-			dIn		:	in	std_logic_vector(7 downto 0));
+			dOut	:	out digital_output_bank;
+			dIn		:	in	digital_input_bank);
 end component;
 
 component FlexDDSControl is

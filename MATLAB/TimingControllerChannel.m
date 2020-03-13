@@ -167,7 +167,9 @@ classdef TimingControllerChannel < handle
         
         function ch = write(ch,v)
             v = 1*(v~=0);
-            
+            r = ch.parent.readManual;
+            r = bitset(r,ch.bit+1,v);
+            ch.parent.writeManual(r);
         end
         
     end

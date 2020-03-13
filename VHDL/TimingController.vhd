@@ -14,7 +14,7 @@ entity TimingController is
 			dataReady		:	in	std_logic;
 			numData			:	in	std_logic_vector(31 downto 0);
 			memData			:	in	mem_data;
-			dataFlag			:	inout	std_logic_vector(1 downto 0) := "00";
+			dataFlag		:	inout	std_logic_vector(1 downto 0) := "00";
 			
 			dataToSend		:	out std_logic_vector(31 downto 0);
 			transmitTrig	:	out std_logic;
@@ -23,8 +23,8 @@ entity TimingController is
 			
 			--Physical signals
 			trigIn	:	in std_logic;
-			dOut	:	out std_logic_vector(31 downto 0);
-			dIn		:	in	std_logic_vector(7 downto 0));
+			dOut	:	out digital_output_bank;
+			dIn		:	in	digital_input_bank);
 end TimingController;
 
 architecture Behavioral of TimingController is
@@ -88,15 +88,13 @@ signal dOutManual	:	digital_output_bank	:=	(others => '0');
 ----------------------------------------------
 ----------  Digital In Signals   -------------
 ----------------------------------------------
--- constant trigRisingEdge	:	std_logic_vector(1 downto 0)	:=	"01";
--- constant trigFallingEdge	:	std_logic_vector(1 downto 0)	:=	"10";
+constant trigRisingEdge		:	std_logic_vector(1 downto 0)	:=	"01";
+constant trigFallingEdge	:	std_logic_vector(1 downto 0)	:=	"10";
 
--- signal waitForDigitalIn, trigWaitDone	:	std_logic	:=	'0';
--- signal trigSync	:	std_logic_vector(1 downto 0)	:=	"00";
--- signal trigBit	:	integer range 0 to 7	:=	0;
--- signal trigType	:	integer range 0 to 2	:=	0;
--- signal trigInState	:	integer range 0 to 1	:=	0;
+signal trigBit	:	integer range 0 to 7	:=	0;
+signal trigType	:	integer range 0 to 3	:=	0;
 
+signal trigSync	:	digital_input_bank_array(1 downto 0)	:=	(others => (others => '0'));
 
 begin
 
@@ -139,6 +137,15 @@ begin
 		else
 			sampleTick <= '0';
 			sampleCount <= 0;
+		end if;
+	end if;
+end process;
+
+TrigSyncProcess: process(clk) is
+begin
+	if rising_edge(clk) then
+		if seqRunning = '1' then
+			trigSync <= trigSync(0) & dIn;
 		end if;
 	end if;
 end process;
@@ -193,15 +200,15 @@ begin
 								parseState <= 2;					
 								
 							when INSTR_OUT =>
-								dOutSig <= memReadData(31 downto 0);
+								dOutSig <= memReadData(NUM_INPUTS-1 downto 0);
 								parseState <= 1;
 								
-							-- when INSTR_IN =>
-							-- 	waitEnable <= '1';
-							-- 	waitForDigitalIn <= '1';
-							-- 	trigBit <= memReadData(7 downto 0);
-							-- 	trigType <= memReadData(15 downto 8);
-							-- 	parseState <= 3;
+							when INSTR_IN =>
+								waitEnable <= '1';
+								waitForDigitalIn <= '1';
+								trigBit <= to_integer(unsigned(memReadData(3 downto 0)));
+								trigType <= to_integer(unsigned(memReadData(9 downto 8)));
+								parseState <= 3;
 
 							when others => parseState <= 1;
 						end case;
@@ -220,62 +227,42 @@ begin
 						parseState <= 1;
 					end if;
 						
-				-- --
-				-- -- Wait-for-trigger state
-				-- --
-				-- when 4 =>
-					
+				--
+				-- Wait-for-trigger state
+				--
+				when 3 =>
+					memReadTrig <= '0';
+					TrigInCase: case(trigType) is
+						--
+						-- Falling edge
+						--
+						when 0 =>
+							if trigSync(trigBit) = trigFallingEdge then
+								parseState <= 1;
+							end if;
+						
+						--
+						-- Either edge
+						--
+						when 1 =>
+							if trigSync(trigBit) = trigFallingEdge or trigSync(trigBit) = trigRisingEdge then
+								parseState <= 1;
+							end if;
 
-
+						--
+						-- Rising edge
+						--
+						when 1 =>
+							if trigSync(trigBit) = trigRisingEdge then
+								parseState <= 1;
+							end if;
+						when others => parseState <= 1;
+					end case;
 				when others => null;
 			end case;
 		end if;
 	end if;
 end process;
-
-
--- InputTriggerDetector: process(clk) is
--- begin
--- 	if rising_edge(clk) then
--- 		DigitalInFSM: case trigInState is
--- 			when 0 =>
--- 				trigWaitDone <= '0';
--- 				if waitForDigitalIn = '1' then
--- 					trigInState <= 1;
--- 					trigSync <= dIn(trigBit) & dIn(trigBit);
--- 				else
--- 					trigInstate <= 0;
--- 				end if;
-				
--- 			when 1 =>
--- 				trigSync <= trigSync(0) & dIn(trigBit);
--- 				TrigTypeCase: case trigType is
--- 					--Falling edge
--- 					when 0 =>
--- 						if trigSync = trigFallingEdge then
--- 							trigInState <= 0;
--- 							trigWaitDone <= '1';
--- 						end if;
-						
--- 					--Either a rising or falling edge
--- 					when 1 =>
--- 						if trigSync = trigFallingEdge or trigSync = trigRisingEdge then
--- 							trigInState <= 0;
--- 							trigWaitDone <= '1';
--- 						end if;
-						
--- 					--Rising edge
--- 					when 2 =>
--- 						if trigSync = trigRisingEdge then
--- 							trigInState <= 0;
--- 							trigWaitDone <= '1';
--- 						end if;
--- 					when others => null;
--- 				end case;	--end TrigTypeCase
--- 			when others => null;
--- 		end case;	--end DigitalInFSM
--- 	end if;
--- end process;
 
 
 SerialInstructions: process(clk) is
