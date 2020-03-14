@@ -1,57 +1,70 @@
 classdef SpartanImaging < handle
+    %SpartanImaging Provides a familiar interface for defining a sequence
+    %
+    %   The SpartanImaging class provides familiar properties for common
+    %   imaging sequences.  The user should be able to just make an object,
+    %   set properties, and run a couple of functions to upload a new
+    %   imaging sequence.  However, the user can also edit the channel
+    %   events directly
+    %
+    %   For ease-of-use, this class uses a variable expansion method that
+    %   allows users to specify a property(ies) as arrays, and the class
+    %   will expand all other variables to create a suitable number of
+    %   configurations to cover all values.
     properties(Access = public)
-        %Public properties that are settable by the user
-        file
+        file                        %Structure with fields dir and base
         
-        %Imaging properties
-        probeType
-        imageDelay
-        enableCoil
+        %% Imaging properties
         
-        crossbeamOnTime
-        timeOfFlight
-        additionalWaveguideOnTime
-        probeWidthRb
-        probeWidthK
-        probeWidthV
-        probeWidthF
+        probeType                   %Type of probe sequence: Rb, K, RbRb, RbK, KRb, KK, F, V
+        imageDelay                  %Delay between two images when using dual imaging
+        crossbeamOnTime             %Time for the crossed-beam dipole trap to be on
+        timeOfFlight                %Delay after crossbeamOnTime until first imaging pulse
+        additionalWaveguideOnTime   %Additional time for the horizontal waveguide
+        probeWidthRb                %Width of Rb probe pulse
+        probeWidthK                 %Width of K probe pulse
+        probeWidthV                 %Width of the vertical imaging pulse
+        probeWidthF                 %Width of the fluorescence imaging pulse
         
-        probeShutterDelay
-        camExp
-        camLoopTime
-        repumpProbeWidth
-        repumpProbeDelay
-        repumpShutterDelay
+        probeShutterDelay           %Delay between probe shutter opening and probe pulse
+        camExp                      %Length of camera trigger on period
+        camLoopTime                 %Loop time between absorption images
+        repumpProbeWidth            %Width of the repump probe pulse
+        repumpProbeDelay            %Delay between start of repump probe pulse and imaging probe pulse
+        repumpShutterDelay          %Delay between opening of repump shutter and start of repump probe pulse
         
-        enableProbe
-        enableRepump
+        enableProbe                 %Enable probe pulses?
+        enableRepump                %Enable repump pulse?
         
     end
     
     properties(Access = protected)
-        %Protected properties that are calculated by the class
-       	numConfigs
+       	numConfigs                  %Number of configurations to write.  If >1, writes to files
     end
     
     properties(Constant)
-        controller = SpartanImagingController;
-        flexDDSTriggers = SpartanFlexDDSTriggerSystem;
-        pulses = StatePrepPulses;
+        %These properties are 'constant' only in the sense that their type
+        %cannot be changed, but their properties can be changed
+        
+        controller = SpartanImagingController;          %Timing controller object
+        flexDDSTriggers = SpartanFlexDDSTriggerSystem;  %FlexDDS trigger system
+        pulses = StatePrepPulses;                       %Interface for creating state preparation pulses
     end
     
     properties(Constant, Hidden=true)
-        %Constant values for the class
-        SER_COM_PORT = 'com3';
-        
-        ANDOR_FIRST_LOOP_TIME = 30;     %[ms]
-        ANDOR_READ_TIME = 20;           %[ms]
-        
-        EX_PROP = {'file','controller','flexDDSTriggers'};
+        SER_COM_PORT = 'com3';          %Serial com port, in case different from SpartanImagingController
+        ANDOR_FIRST_LOOP_TIME = 30;     %First loop time for the Andor camera in [ms]
+        ANDOR_READ_TIME = 20;           %Read time for the Andor camera in [ms]
+        EX_PROP = {'file','controller','flexDDSTriggers'};  %Properties to exclude from variable expansion
     end
     
     
     methods
         function sp = SpartanImaging
+            %SpartanImaging Constructs an object with default values
+            %
+            %   sp = SpartanImaging constructs SpartanImaging object sp 
+            %   with default values
             sp.reset;
 %             sp.file.dir = 'C:\Users\nkgroup.PX\Documents\FPGA Files\';
             sp.file.dir = 'FPGA Files\';
@@ -59,9 +72,13 @@ classdef SpartanImaging < handle
         end
         
         function sp = reset(sp)
+            %RESET Resets properties to their defaults.
+            %
+            %   sp = sp.reset resets object sp's properties to defaults,
+            %   including the controller, FlexDDS trigger system, and state
+            %   prep interface
             sp.probeType = 'Rb';
             sp.imageDelay = 0.16;
-            sp.enableCoil = 0;
             
             sp.crossbeamOnTime = 50;
             sp.timeOfFlight = 20;
@@ -130,9 +147,14 @@ classdef SpartanImaging < handle
             end
             
             sp.numConfigs = maxVarLength;
-        end %end expandVariables
+        end
         
         function r = checkProp(sp,p)
+            %checkProp Checks if property is to be excluded from expansion
+            %
+            %   r = sp.checkProp(p) checks if property p is part of
+            %   SpartanImaging.EX_PROP, returns false if so and true
+            %   otherwise
             for nn = 1:numel(sp.EX_PROP)
                 if strcmpi(sp.EX_PROP(nn),p)
                     r = false;
@@ -143,6 +165,14 @@ classdef SpartanImaging < handle
         end
         
         function sp = makeSingleImageSeq(sp,idx)
+            %makeSingleImageSeq Makes a single imaging sequence
+            %
+            %   sp = sp.makeSingleImageSeq makes an imaging sequence for a
+            %   supported type of single absorption imaging sequence.
+            %
+            %   sp = sp.makeSingleImageSeq(idx) makes an imaging sequence
+            %   corresponding to the element idx in each property array.
+            %   For idx>1, sp.expandVariables should be called first.
             if nargin < 2
                 idx = 1;
             end
@@ -180,33 +210,41 @@ classdef SpartanImaging < handle
             probeR = sp.controller.probeRepumpF;
             shutterR = sp.controller.shutterRepumpF;
             %% First image with atoms
-            probe.on(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
-            shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').on(probe.last,0);
-            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').on(probe.last,0);
+            probe.at(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
+            shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').at(probe.last,0);
+            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').at(probe.last,0);
             
-            probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms')
+            probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
             probeR.after(sp.repumpProbeWidth(idx),0,'us');
-            shutterR.on(probeR.last,0);
+            shutterR.at(probeR.last,0);
             
             %% Second image with atoms
             onTime = onTime+sp.camLoopTime(idx);
-            probe.on(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
-            shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').on(probe.last,0);
-            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').on(probe.last,0);
+            probe.at(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
+            shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').at(probe.last,0);
+            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').at(probe.last,0);
             
-            probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms')
+            probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
             probeR.after(sp.repumpProbeWidth(idx),0,'us');
-            shutterR.on(probeR.last,0);
+            shutterR.at(probeR.last,0);
             
             %% Third image without atoms
             onTime = onTime+sp.camLoopTime(idx);
-            camTrig.on(onTime,1,'ms').before(sp.camExp(idx),1,'ms').sort.after(width,0,'us');
+            camTrig.at(onTime,1,'ms').before(sp.camExp(idx),1,'ms').sort.after(width,0,'us');
             
         end
         
         function sp = makeDoubleImageSeq(sp,idx)
+            %makeDoubleImageSeq Makes a double imaging sequence
+            %
+            %   sp = sp.makeDoubleImageSeq makes an imaging sequence for a
+            %   supported type of double absorption imaging sequence.
+            %
+            %   sp = sp.makeDoubleImageSeq(idx) makes an imaging sequence
+            %   corresponding to the element idx in each property array.
+            %   For idx>1, sp.expandVariables should be called first.
             if nargin < 2
                 idx = 1;
             end
@@ -261,53 +299,60 @@ classdef SpartanImaging < handle
             shutter1.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             shutter2.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             
-            probe1.on(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
-            camTrig.on(probe1.last,0).before(sp.camExp(idx),1,'ms');
+            probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
+            camTrig.at(probe1.last,0).before(sp.camExp(idx),1,'ms');
             
             probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
-            shutter1.on(probe2.last,0);
-            shutter2.on(probe2.last,0);
+            shutter1.at(probe2.last,0);
+            shutter2.at(probe2.last,0);
             
             camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
             probeR.after(sp.repumpProbeWidth(idx),0,'us');
-            shutterR.on(probeR.last,0);
+            shutterR.at(probeR.last,0);
             
             %% Second images without atoms
             onTime = onTime+delay+sp.camLoopTime(idx);
             shutter1.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             shutter2.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
-            probe1.on(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
-            camTrig.on(probe1.last,0).before(sp.camExp(idx),1,'ms');
+            probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
+            camTrig.at(probe1.last,0).before(sp.camExp(idx),1,'ms');
             
             probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
-            shutter1.on(probe2.last,0);
-            shutter2.on(probe2.last,0);
+            shutter1.at(probe2.last,0);
+            shutter2.at(probe2.last,0);
             camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
             probeR.after(sp.repumpProbeWidth(idx),0,'us');
-            shutterR.on(probeR.last,0);
+            shutterR.at(probeR.last,0);
             
             %% Third dark images
             onTime = onTime+delay+sp.camLoopTime(idx);
-            camTrig.on(onTime,0,'ms').before(sp.camExp(idx),1,'ms');
+            camTrig.at(onTime,0,'ms').before(sp.camExp(idx),1,'ms');
             camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
             
         end
         
-        
         function sp = makeSequence(sp,idx)
+            %makeSequence Makes a complete imaging sequence
+            %
+            %   sp = sp.makeSequence makes an imaging sequence, including
+            %   state preparation pulses and FlexDDS triggers
+            %
+            %   sp = sp.makeDoubleImageSeq(idx) makes an imaging sequence
+            %   corresponding to the element idx in each property array.
+            %   For idx>1, sp.expandVariables should be called first.
             if nargin < 2
                 idx = 1;
             end
             tc = sp.controller;
             tc.reset;
             
-            sp.controller.laser.on(0,1).after(sp.crossbeamOnTime(idx)+sp.additionalWaveguideOnTime(idx),0,'ms');
+            sp.controller.laser.at(0,1).after(sp.crossbeamOnTime(idx)+sp.additionalWaveguideOnTime(idx),0,'ms');
             if iscell(sp.probeType)
                 pt = sp.probeType{idx};
             else
@@ -323,11 +368,16 @@ classdef SpartanImaging < handle
             end
             
             sp.pulses.makeSequences(tc.mw,tc.rf,tc.pulseType,idx);
-            
         end
         
         
         function sp = upload(sp)
+            %UPLOAD Uploads current sequence to controller or file
+            %
+            %   sp.upload uploads current sequence to controller if only
+            %   one configuration is present or to a set of files in dir
+            %   sp.file.dir with base-name sp.file.base if more than one
+            %   configuration is present.
             if sp.numConfigs == 1
                 sp.controller.open;
                 sp.flexDDSTriggers.upload(sp.controller.ser);
@@ -339,9 +389,22 @@ classdef SpartanImaging < handle
                     dev = fopen(sprintf('%s%s_%d',sp.file.dir,sp.file.base,nn),'w');
                     sp.flexDDSTriggers.upload(dev);
                     sp.controller.upload(dev);
+                    fclose(dev);
                 end
             end
-            
+        end
+        
+        function sp = plot(sp,varargin)
+            %PLOT Plots all channel sequences with associated names
+            %
+            %   This is an alias of SpartanImagingController.plot
+            %
+            %   sp = sp.plot plots all channel sequences on the same graph
+            %
+            %   sp = sp.plot(offset) plots all channel sequences on the
+            %   same graph but with each channel's sequence offset from the
+            %   next by offset
+            sp.controller.plot(varargin{:});
         end
         
         

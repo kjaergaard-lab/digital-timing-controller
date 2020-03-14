@@ -42,6 +42,10 @@ classdef StatePrepPulses < handle
         end
         
         function obj = checkType(obj,pulseType)
+            %checkType Checks to see if given pulse type is allowed
+            %
+            %   obj = obj.checkType(pulseType) checks if pulseType is
+            %   allowed
             r = false;
             for nn=1:numel(obj.PULSE_TYPES)
                 if strcmpi(pulseType,obj.PULSE_TYPES{nn})
@@ -54,7 +58,10 @@ classdef StatePrepPulses < handle
         end
         
         function obj = removePulses(obj,idx)
-            %removePulses Removes the pulses specified by idx
+            %removePulses Removes the specified pulses
+            %
+            %   obj = obj.removePulses(idx) removes the pulses specified by
+            %   idx
             if any(idx>obj.numPulses) || any(idx<1)
                 error('Index is out of range!');
             end
@@ -62,7 +69,7 @@ classdef StatePrepPulses < handle
             incl(idx) = false;
             obj.pulses = obj.pulses(incl);
             obj.numPulses = numel(obj.pulses);
-        end %end removePulses
+        end
         
         function r = getMaxVarLength(obj)
             %getMaxVarLength Returns the maximum length of a variable in
@@ -78,11 +85,13 @@ classdef StatePrepPulses < handle
                     end
                 end
             end
-        end %end getMaxVarLength
+        end
         
         function obj = repVars(obj,maxLength)
-            %repVars Replicates the variables to the size specified by
-            %maxLength
+            %repVars Replicates the variables to a given size
+            %
+            %   obj.repVars(maxLength) Replicates the variables to the
+            %   length given by maxLength
             for nn = 1:obj.numPulses
                 names = fieldnames(obj.pulses(nn));
                 for mm = 1:numel(names)
@@ -94,23 +103,37 @@ classdef StatePrepPulses < handle
                     end
                 end
             end
-        end %end repVars
+        end
         
         function obj = makeSequences(obj,mw,rf,pt,idx)
+            %makeSequences Makes relevant sequences based
+            %
+            %   obj = obj.makeSequences(MW,RF,PT) adds the relevant events
+            %   to the microwave MW, radio-frequency RF, and pulse type PT
+            %   channels based on the parameters set within.  MW, RF, and
+            %   PT should be of type TimingControllerChannel
+            %
+            %   obj = obj.makeSequences(MW,RF,PT,idx) makes the relevant
+            %   sequences for parameters given by idx
             if nargin < 5
                 idx = 1;
             end
             for nn=1:obj.numPulses
                 p = obj.pulses(nn);
-                switch upper(p.type{idx})
+                if iscell(p.type)
+                    pulseType = p.type{idx};
+                else
+                    pulseType = p.type;
+                end
+                switch upper(pulseType)
                     case 'RB'
-                        mw.on(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
-                        pt.on(p.start(idx),0,'ms').after(p.duration(idx),0,'ms');
+                        mw.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
+                        pt.at(p.start(idx),0,'ms').after(p.duration(idx),0,'ms');
                     case 'K'
-                        mw.on(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
-                        pt.on(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
+                        mw.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
+                        pt.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
                     case 'RF'
-                        rf.on(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
+                        rf.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
                     otherwise
                         error('Pulse type %s not supported!',p.type{idx});
                 end

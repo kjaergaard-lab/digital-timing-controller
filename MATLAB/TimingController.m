@@ -1,41 +1,51 @@
 classdef TimingController < handle
+    %TimingController Defines a class to control digital timing controller
+    %
+    %   The TimingController class can be used to simplify interactions
+    %   with the associated digital timing controller.  It allows for
+    %   starting/stopping sequences, writing manual values, and uploading
+    %   sequences
     properties
-        %% Channel properties
-        channels
-        
-        %% Serial port properties
-        ser         %serial object
-        comPort     %Serial com port
-        
-        compiledData
+        channels        %Array of TimingControllerChannel objects
+        ser             %Serial port object
+        comPort         %Serial com port
+    end
+    
+    properties(Access = protected)
+        compiledData    %Array of compiled data
     end
     
     properties(Constant, Hidden = true)
-        ID = 0;
-        NUM_CHANNELS = 32;
-        SER_PORT_DEFAULT = 'com3';
-        SER_PORT_BAUDRATE = 115200;
-        SER_PORT_BUFFER_SIZE = 2^10;
-        FPGA_SAMPLE_CLK = 20e6;            %In Hz
+        ID = 0;                                     %ID of the controller
+        NUM_CHANNELS = 32;                          %Number of allowed channels
+        SER_PORT_DEFAULT = 'com3';                  %Default serial port of the FPGA
+        SER_PORT_BAUDRATE = 115200;                 %Baud rate of the FPGA serial controller
+        SER_PORT_BUFFER_SIZE = 2^10;                %Serial port buffer size
+        FPGA_SAMPLE_CLK = 20e6;                     %Controller sample clock, in Hz
         
-        FPGA_COMMAND_STOP = 0;
-        FPGA_COMMAND_START = 1;
-        FPGA_COMMAND_READ_STATUS = 2;
-        FPGA_COMMAND_READ_MANUAL = 3;
-        FPGA_COMMAND_WRITE_MANUAL = bitshift(1,16);
-        FPGA_COMMAND_MEM_UPLOAD = bitshift(2,16);
+        FPGA_COMMAND_START = 0;                     %Command to start the wait-for-trigger stage
+        FPGA_COMMAND_STOP = 1;                      %Command to stop the sequence
+        FPGA_COMMAND_READ_STATUS = 2;               %Commad to request the controller status
+        FPGA_COMMAND_READ_MANUAL = 3;               %Command to read current manual values
+        FPGA_COMMAND_WRITE_MANUAL = bitshift(1,16); %Command to write manual values
+        FPGA_COMMAND_MEM_UPLOAD = bitshift(2,16);   %Command to upload instructions to memory
         
-        FPGA_SEQ_DELAY = 0;
-        FPGA_SEQ_OUT = 1;
-        FPGA_SEQ_IN = 2;
+        FPGA_SEQ_DELAY = 0;                         %Instruction header indicating a wait command
+        FPGA_SEQ_OUT = 1;                           %Instruction header indicating a digital-output command
+        FPGA_SEQ_IN = 2;                            %Instruction header indicating a digital-input command
         
-        FPGA_ADDR_WIDTH = 11;
+        FPGA_ADDR_WIDTH = 11;                       %Width of controller address bus - max number of instructions is 2^11
         
     end
     
     
     methods
         function tc = TimingController
+            %TimingController Constructs a TimingController object with
+            %default values
+            %
+            %   tc = TimingController constructs a TimingController object
+            %   tc
             tmp(tc.NUM_CHANNELS,1) = TimingControllerChannel;
             tc.channels = tmp;
             for nn=1:tc.NUM_CHANNELS
@@ -46,9 +56,14 @@ classdef TimingController < handle
         %% Serial port functions
         function open(tc)
             %OPEN Opens a serial port
-            %   Uses the servo.comPort and servo.BAUD_RATE properties to
+            %
+            %   Uses the TimingController.comPort and 
+            %   TimingController.SERIAL_PORT_BAUDRATE properties to
             %   open a serial port.  Checks for already open or existing
             %   interfaces and uses those if they exist.
+            %
+            %   If the comPort property is empty, uses
+            %   TimingController.SER_PORT_DEFAULT as the port
             if isempty(tc.comPort)
                 tc.comPort = tc.SER_PORT_DEFAULT;
             end
@@ -78,7 +93,7 @@ classdef TimingController < handle
         function close(sv)
             %CLOSE Closes the serial port
             %   Closes and deletes the serial port associated with the
-            %   servo controller.
+            %   timing controller.
             if isa(sv.ser,'serial') && isvalid(sv.ser) && strcmpi(sv.ser.port,sv.comPort)
                 if strcmpi(sv.ser.status,'open')
                     fclose(sv.ser);
@@ -89,12 +104,20 @@ classdef TimingController < handle
         
         %%
         function tc = reset(tc)
+            %RESET Resets the TimingController channels to their default
+            %state
+            %
+            %   tc = tc.reset resets the TimingController
             for nn=1:tc.NUM_CHANNELS
                 tc.channels(nn).reset;
             end
         end
         
         function v = getDefaults(tc)
+            %getDefaults Returns the default values stored in each channel
+            %
+            %   v = tc.getDefaults returns the default value as a uint32
+            %   value, which is how the physical controller is programmed
             v = 0;
             for nn=1:tc.NUM_CHANNELS
                 v = v+bitshift(tc.channels(nn).default,tc.channels(nn).getBit);
@@ -102,6 +125,11 @@ classdef TimingController < handle
         end
         
         function ch = findBit(tc,bit)
+            %findBit Returns the channel corresponding to a given
+            %bit-number
+            %
+            %   ch = tc.findBit(BIT) returns the TimingControllerChannel
+            %   with bit-number BIT.  Returns empty if not found
             ch = [];
             for nn=1:tc.NUM_CHANNELS
                 if tc.channels(nn).getBit == bit
@@ -111,7 +139,12 @@ classdef TimingController < handle
             end
         end
         
-        function data = compile(tc)
+        function tc = compile(tc)
+            %COMPILE Compiles the channel sequences
+            %
+            %   tc = tc.compile creates a set of instructions comprising
+            %   instruction headers and values from all of the channel
+            %   sequences.
             t = [];
             v = [];
             for nn=1:tc.NUM_CHANNELS
@@ -156,6 +189,14 @@ classdef TimingController < handle
         end
         
         function tc = upload(tc,dev)
+            %UPLOAD Uploads the stored compiled data to the device
+            %
+            %   tc.upload uplods the stored compiled data to the serial
+            %   device.
+            %
+            %   tc.upload(dev) uploads the stored compiled data to the
+            %   given device dev, where dev is compatible with
+            %   fwrite(dev,data,dataType) commands.
             if nargin < 2
                 tc.open;
                 dev = tc.ser;
@@ -171,21 +212,81 @@ classdef TimingController < handle
             fwrite(dev,tc.FPGA_COMMAND_START,'uint32');
         end
         
-        function tc = start(tc)
-            tc.open;
-            fwrite(tc.ser,tc.FPGA_COMMAND_START,'uint32');
+        function data = getCompiledData(tc)
+            %getCompiledData Returns data compiled by COMPILE
+            %
+            %   data = tc.getCompiledData returns compiled data
+            data = tc.compiledData;
         end
         
-        function tc = stop(tc)
-            tc.open;
-            fwrite(tc.ser,tc.FPGA_COMMAND_STOP,'uint32');
+        function tc = start(tc,dev)
+            %START Issues the start command
+            %
+            %   tc.start issues the start command over serial
+            %   tc.start(DEV) issues the start command to device/file DEV
+            if nargin < 2
+                tc.open;
+                dev = tc.ser;
+            end
+            fwrite(dev,tc.FPGA_COMMAND_START,'uint32');
         end
         
-        function tc = writeDefaults(tc)
-            tc.writeManual(tc.getDefaults);
+        function tc = stop(tc,dev)
+            %STOP Issues the stop command
+            %
+            %   tc.stop issues the stop command over serial
+            %   tc.stop(DEV) issues the stop command to device/file DEV
+            if nargin < 2
+                tc.open;
+                dev = tc.ser;
+            end
+            fwrite(dev,tc.FPGA_COMMAND_STOP,'uint32');
+        end
+        
+        function tc = writeDefaults(tc,dev)
+            %writeDefaults Writes default values to the device
+            %
+            %   tc.writeDefaults writes default values using serial
+            %   tc.writeDefaults(DEV) writes default values using
+            %   device/file DEV
+            if nargin < 2
+                tc.open;
+                dev = tc.ser;
+            end
+            tc.writeManual(tc.getDefaults,dev);
+        end
+        
+        function tc = writeManual(tc,v,dev)
+            %writeManual Writes manual values to the device
+            %
+            %   tc = tc.writeManual writes the manual values currently
+            %   stored in the channel objects to the FPGA over serial
+            %
+            %   tc = tc.writeManual(v) writes the value given by v to the
+            %   FPGA over serial
+            %
+            %   tc = tc.writeManual(v,dev) writes the value given by v to
+            %   the device/file given by dev
+            if nargin == 1
+                v = 0;
+                for nn = 1:tc.NUM_CHANNELS
+                    v = v+bitshift(tc.channels(nn).manual,tc.channels(nn).getBit);
+                end
+                tc.open;
+                dev = tc.ser;
+            elseif nargin == 2
+                tc.open;
+                dev = tc.ser;
+            end
+            fwrite(dev,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
+            fwrite(dev,uint32(v),'uint32');
         end
         
         function r = readManual(tc)
+            %readManual Reads the current manual values from the FPGA
+            %
+            %   r = tc.readManual reads the current manual values from the
+            %   FPGA over serial
             tc.open;
             fwrite(tc.ser,tc.FPGA_COMMAND_READ_MANUAL,'uint32');
             while tc.ser.BytesAvailable~=4
@@ -194,13 +295,14 @@ classdef TimingController < handle
             r = fread(tc.ser,1,'uint32');
         end
         
-        function tc = writeManual(tc,v)
-            tc.open;
-            fwrite(tc.ser,tc.FPGA_COMMAND_WRITE_MANUAL,'uint32');
-            fwrite(tc.ser,uint32(v),'uint32');
-        end
-        
         function tc = plot(tc,offset)
+            %PLOT Plots all channel sequences
+            %
+            %   tc = tc.plot plots all channel sequences on the same graph
+            %
+            %   tc = tc.plot(offset) plots all channel sequences on the
+            %   same graph but with each channel's sequence offset from the
+            %   next by offset
             jj = 1;
             if nargin < 2
                 offset = 0;

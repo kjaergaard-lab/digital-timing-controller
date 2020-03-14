@@ -1,43 +1,53 @@
 classdef SpartanImagingController < TimingController
+    %SpartanImagingController A wrapper for the TimingController object
+    %
+    %   Provides a wrapper around the TimingController class that defines
+    %   names for relevant channels belonging to our imaging controller
     properties
         %% Normal imaging channels
-        camTrig
-        probeRb
-        shutterRb
-        probeK
-        shutterK
+        camTrig             %Normal camera trigger
+        probeRb             %Rb probe AOM on/off switch
+        shutterRb           %Rb probe shutter on/off switch
+        probeK              %K probe AOM on/off switch
+        shutterK            %K shutter on/off switch
         
         %% Vertical imaging channels
-        probeV
-        shutterV
-        camTrigV
+        probeV              %Vertical imaging probe AOM on/off switch
+        shutterV            %Vertical imaging shutter on/off switch
+        camTrigV            %Vertical imaging camera trigger
         
         %% Fluorescence imaging
-        probeRepumpF
-        probeMOTF
-        shutterRepumpF
-        shutterMOTF
+        probeRepumpF        %Repump probe AOM on/off switch
+        probeMOTF           %MOT AOM on/off switch
+        shutterRepumpF      %Repump shutter on/off switch
+        shutterMOTF         %MOT shutter on/off switch
         
         %% Laser control
-        laser
+        laser               %Dipole trapping laser on/off switch
         
         %% Coil control
-        coil
+        coil                %Levitation coil on/off switch
         
         %% State preparation
-        mw
-        rf
-        pulseType
+        mw                  %Microwave on/off switch
+        rf                  %RF on/off switch
+        pulseType           %Pulse type on/off (Rb/K)
 
     end
     
     methods
         function sp = SpartanImagingController
+            %SpartanImagingController Constructs a SpartanImagingController
+            %object
+            %
+            %   sp = SpartanImagingController creates the
+            %   SpartanImagingController object
             sp = sp@TimingController;
             sp.defineChannels;
         end
         
         function sp = defineChannels(sp)
+            %defineChannels Defines the different channels with names
             %% Normal imaging channels
             sp.camTrig = sp.findBit(0);
             sp.probeRb = sp.findBit(1);
@@ -71,6 +81,13 @@ classdef SpartanImagingController < TimingController
         end
         
         function sp = plot(sp,offset)
+            %PLOT Plots all channel sequences with associated names
+            %
+            %   tc = tc.plot plots all channel sequences on the same graph
+            %
+            %   tc = tc.plot(offset) plots all channel sequences on the
+            %   same graph but with each channel's sequence offset from the
+            %   next by offset
             if nargin < 2
                 offset = 0;
             end

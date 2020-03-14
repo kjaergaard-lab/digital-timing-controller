@@ -1,55 +1,87 @@
 classdef TimingControllerChannel < handle
+    %TimingControllerChannel Defines a channel for the digital
+    %TimingController class.  Provides methods for adding times/values and
+    %for plotting the resulting sequence
     properties
-        %% Static properties
-        default
-        manual
-        
+        default     %Default value for this channel
+        manual      %Manual value
     end
     
     properties(Access = protected)
-        bit
-        parent
+        bit         %Bit in std_logic_vector in VHDL code corresponding to this channel
+        parent      %Parent timing controller object
         
-        %% Sequence properties
-        values
-        times
-        numValues
+        values      %Array of values in channel sequence.  Only 0 or 1 values are allowed
+        times       %Array of times in the channel sequence in seconds
+        numValues   %Number of time/value pairs
         
-        %% Aux properties
-        lastTime
+        lastTime    %Last time written - used for before/after functions
     end
     
     methods
         function ch = TimingControllerChannel(parent,bit)
+            %TimingControllerChannel Contructs a channel
+            %   ch = TimingControllerChannel(parent) Contructs a channel
+            %   with the given parent
+            %   ch = TimingControllerChannel(parent,bit) Constructs a
+            %   channel with the given parent and bit number
             if nargin >= 1
+                if ~isa(parent,'TimingController')
+                    error('Parent must be a TimingController object!');
+                end
                 ch.parent = parent;
             end
             if nargin >= 2
                 ch.bit = bit;
             end
             ch.default = 0;
+            ch.manual = ch.default;
             ch.reset;
         end
         
         function ch = setParent(ch,parent)
+            %setParent Sets the parent TimingController
+            %
+            %   ch = ch.setParent(PARENT) sets the parent to PARENT if
+            %   PARENT is a TimingController object.  Returns the channel object
+            %   ch
+            if ~isa(parent,'TimingController')
+                error('Parent must be a TimingController object!');
+            end
             ch.parent = parent;
         end
         
         function p = getParent(ch)
+            %getParent Returns the parent object
+            %
+            %   p = ch.getParent Returns the parent object for
+            %   TimingControllerChannel object ch
             p = ch.parent;
         end
         
         function ch = setBit(ch,bit)
+            %setBit Sets the bit-number for this channel
+            %
+            %   ch = ch.setBit(BIT) sets the bit number to integer BIT when
+            %   ch is a TimingControllerChannel
             if bit>=0 && bit<ch.parent.NUM_CHANNELS
                 ch.bit = bit;
             end
         end
         
         function b = getBit(ch)
+            %getBit Returns the bit-number
+            %
+            %   B = ch.getBit returns bit as B
             b = ch.bit;
         end
         
         function [t,v] = getEvents(ch)
+            %getEvents Returns the times and values as separate Nx1 arrays.
+            % 
+            %   Events are checked for errors and sorted before being
+            %   returned.
+            %   [t,v] = ch.getEvents returns times t and values v
             ch.check;
             ch.sort;
             if ch.numValues==0
@@ -65,10 +97,22 @@ classdef TimingControllerChannel < handle
         end
         
         function N = getNumValues(ch)
+            %getNumValues Returns the number of time/value pairs
+            %
+            %   N = ch.getNumValues returns the number of time/value pairs
+            %   N
             N = ch.numValues;
         end
         
-        function ch = on(ch,time,value,timeUnit)
+        function ch = at(ch,time,value,timeUnit)
+            %AT Adds a value at the given time
+            %
+            %   ch = ch.at(TIME,VALUE) adds VALUE to the events at the time 
+            %   given by TIME.  TIME must be in seconds and VALUE either 0
+            %   or 1.  Sets the lastTime property to TIME
+            %   ch = ch.at(TIME,VALUE,UNIT) adds VALUE to the events at the
+            %   time given by TIME in units of UNIT.  Allowed units are
+            %   'ns', 'us', 'ms', and 's'
             if nargin==4 && isnumeric(timeUnit)
                 time = time*timeUnit;
             elseif nargin==4 && ischar(timeUnit)
@@ -88,14 +132,26 @@ classdef TimingControllerChannel < handle
                 ch.numValues = N;
                 ch.lastTime = time;
             else
-%                 warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
+                warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
                 ch.values(idx,1) = value;
                 ch.times(idx,1) = time;
                 ch.lastTime = time;
             end
         end
         
+        function ch = on(ch,varargin)
+            %ON Alias of AT method
+            ch.at(varargin{:});
+        end
+        
         function ch = after(ch,delay,value,timeUnit)
+            %AFTER Adds a value to the events after the last added event
+            %
+            %   ch = ch.after(DELAY,VALUE) adds value to the events a time
+            %   DELAY seconds after the property lastTime.  Note that this
+            %   is not necessarily the latest time in the sequence.
+            %   ch = ch.after(DELAY,VALUE,UNIT) assumes that DELAY has
+            %   units specified by UNIT.  See AT documentation.
             if nargin==4 && isnumeric(timeUnit)
                 delay = delay*timeUnit;
             elseif nargin==4 && ischar(timeUnit)
@@ -103,10 +159,17 @@ classdef TimingControllerChannel < handle
             end
             
             time = ch.lastTime+delay;
-            ch.on(time,value);
+            ch.at(time,value);
         end
         
         function ch = before(ch,delay,value,timeUnit)
+            %BEFORE Adds a value to the events before the last added event
+            %
+            %   ch = ch.before(DELAY,VALUE) adds value to the events a time
+            %   DELAY seconds before the property lastTime.  Note that this
+            %   is not necessarily the latest time in the sequence.
+            %   ch = ch.before(DELAY,VALUE,UNIT) assumes that DELAY has
+            %   units specified by UNIT.  See AT documentation.
             if nargin==4 && isnumeric(timeUnit)
                 delay = delay*timeUnit;
             elseif nargin==4 && ischar(timeUnit)
@@ -114,10 +177,14 @@ classdef TimingControllerChannel < handle
             end
             
             time = ch.lastTime-delay;
-            ch.on(time,value);
+            ch.at(time,value);
         end
         
         function ch = anchor(ch,time,timeUnit)
+            %ANCHOR Sets the lastTime property
+            %
+            %   ch.anchor(TIME,UNIT) sets the lastTime property to TIME
+            %   with units UNIT.  UNIT can be omitted.
             if nargin==3 && isnumeric(timeUnit)
                 time = time*timeUnit;
             elseif nargin==3 && ischar(timeUnit)
@@ -128,11 +195,16 @@ classdef TimingControllerChannel < handle
         end
         
         function [time,value] = last(ch)
+            %LAST Returns the last time and last value
+            %
+            %   [t,v] = ch.last returns the last time t and last value v
             time = ch.times(end);
             value = ch.values(end);
         end
         
         function ch = reset(ch)
+            %RESET Resets the channel sequence so that there are no events
+            %   ch = ch.reset resets the channel
             ch.times = [];
             ch.values = [];
             ch.numValues = 0;
@@ -140,18 +212,36 @@ classdef TimingControllerChannel < handle
         end
         
         function ch = sort(ch)
-            [B,K] = sort(ch.times);
-            ch.times = B;
-            ch.values = ch.values(K);
+            %SORT Sorts the events so that they are ordered chronologically
+            %
+            %   ch = ch.sort sorts the events.  The lastTime property is
+            %   set to the last time in the sorted events
+            if numel(ch.times)>0
+                [B,K] = sort(ch.times);
+                ch.times = B;
+                ch.values = ch.values(K);
+                ch.lastTime = ch.times(end);
+            end
         end
         
         function ch = check(ch)
+            %CHECK Checks times to make sure that they are all >= 0
+            %
+            %   ch = ch.check checks the event times
             if any(ch.times<0)
                 error('All times must be greater than 0 (no acausal events)!');
             end
         end
         
         function ch = plot(ch,offset)
+            %PLOT Plots the current sequence as a function of time.
+            %
+            %   ch.plot plots the current sequence as a function of time.
+            %   If there are no events, a message is displayed.
+            %
+            %   ch.plot(OFFSET) plots the current sequence with a vertical 
+            %   offset given by OFFSET.  This is useful if you want to plot
+            %   multiple signals on the same plot
             [t,v] = ch.getEvents;
             tplot = sort([t;t-1/ch.parent.FPGA_SAMPLE_CLK]);
             if numel(v)==1
@@ -166,16 +256,23 @@ classdef TimingControllerChannel < handle
         end
         
         function ch = write(ch,v)
-            v = 1*(v~=0);
-            r = ch.parent.readManual;
-            r = bitset(r,ch.bit+1,v);
-            ch.parent.writeManual(r);
+            %WRITE Sets the manual value and writes to the device
+            %
+            %   ch = ch.write(V) writes the value V to the device using the
+            %   parent's WRITEMANUAL method.
+            ch.manual = 1*(v~=0);
+            ch.parent.writeManual;
         end
         
     end
     
     methods(Static)
         function scale = getTimeUnit(unit)
+            %getTimeUnit Returns the correct scaling for a given time unit
+            %
+            %   scale = TimingControllerChannel.getTimeUnit(UNIT) returns
+            %   the numerical scale factor converting the given UNIT to
+            %   seconds.  Allowed units are 'ns', 'us', 'ms', and 's'
             switch lower(unit)
                 case 'ns'
                     scale = 1e-9;
