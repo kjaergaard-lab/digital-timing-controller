@@ -370,7 +370,6 @@ classdef SpartanImaging < handle
             sp.pulses.makeSequences(tc.mw,tc.rf,tc.pulseType,idx);
         end
         
-        
         function sp = upload(sp)
             %UPLOAD Uploads current sequence to controller or file
             %
@@ -395,8 +394,6 @@ classdef SpartanImaging < handle
             end
         end
         
-        
-        
         function sp = plot(sp,varargin)
             %PLOT Plots all channel sequences with associated names
             %
@@ -411,6 +408,9 @@ classdef SpartanImaging < handle
         end
         
         function sp = softStart(sp)
+            %softStart Issues a software start of the controller
+            %
+            %   sp = sp.softStart issues a software start to the controller
             sp.controller.open;
             dev = sp.controller.ser;
             fwrite(dev,hex2dec('ff000000'),'uint32');

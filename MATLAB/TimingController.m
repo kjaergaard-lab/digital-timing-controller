@@ -299,16 +299,20 @@ classdef TimingController < handle
             r = fread(tc.ser,1,'uint32');
         end
         
-        function d = readStatus(tc)
+        function status = readStatus(tc)
+            %readStatus Reads the status of the timing controller
+            %
+            %   STATUS = tc.readStatus returns a structure STATUS with
+            %   fields 'seqEnabled', 'seqRunning', and 'addr'.  
             tc.open;
             fwrite(tc.ser,tc.FPGA_COMMAND_READ_STATUS,'uint32');
             while tc.ser.BytesAvailable~=4
                 pause(10e-3);
             end
             r = fread(tc.ser,1,'uint32');
-            d.seqEnabled = bitget(r,32);
-            d.seqRunning = bitget(r,31);
-            d.addr = bitand(r,bitcmp(bitshift(3,30),'uint32'));
+            status.seqEnabled = bitget(r,32);
+            status.seqRunning = bitget(r,31);
+            status.addr = bitand(r,bitcmp(bitshift(3,30),'uint32'));
         end
         
         function tc = plot(tc,offset)
@@ -335,6 +339,16 @@ classdef TimingController < handle
         end
         
         function [t,v] = plotCompiledData(tc,offset)
+            %plotCompiledData Plots compiled data as time/value pairs.
+            %
+            %   [t,v] = tc.plotCompiledData plots compiled data as
+            %   time/value pairs and returns those values in variables t
+            %   and v.  Unlike TimingController.plot, this plots ALL
+            %   channels
+            %
+            %   [t,v] = tc.plotCompiledData(offset) plots all channel 
+            %   sequences on the same graph but with each channel's 
+            %   sequence offset from the next by offset
             if nargin < 2
                 offset = 0;
             end
