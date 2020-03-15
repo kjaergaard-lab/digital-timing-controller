@@ -141,14 +141,14 @@ begin
 	end if;
 end process;
 
-TrigSyncProcess: process(clk) is
-begin
-	if rising_edge(clk) then
-		if seqRunning = '1' then
-			trigSync <= trigSync(0) & dIn;
-		end if;
-	end if;
-end process;
+--TrigSyncProcess: process(clk) is
+--begin
+--	if rising_edge(clk) then
+--		if seqRunning = '1' then
+--			trigSync <= trigSync(0) & dIn;
+--		end if;
+--	end if;
+--end process;
 
 
 MainProcess: process(clk) is
@@ -200,15 +200,15 @@ begin
 								parseState <= 2;					
 								
 							when INSTR_OUT =>
-								dOutSig <= memReadData(NUM_INPUTS-1 downto 0);
+								dOutSig <= memReadData(NUM_OUTPUTS-1 downto 0);
 								parseState <= 1;
 								
-							when INSTR_IN =>
-								waitEnable <= '1';
-								waitForDigitalIn <= '1';
-								trigBit <= to_integer(unsigned(memReadData(3 downto 0)));
-								trigType <= to_integer(unsigned(memReadData(9 downto 8)));
-								parseState <= 3;
+--							when INSTR_IN =>
+--								waitEnable <= '1';
+--								waitForDigitalIn <= '1';
+--								trigBit <= to_integer(unsigned(memReadData(3 downto 0)));
+--								trigType <= to_integer(unsigned(memReadData(9 downto 8)));
+--								parseState <= 3;
 
 							when others => parseState <= 1;
 						end case;
@@ -227,37 +227,38 @@ begin
 						parseState <= 1;
 					end if;
 						
-				--
-				-- Wait-for-trigger state
-				--
-				when 3 =>
-					memReadTrig <= '0';
-					TrigInCase: case(trigType) is
-						--
-						-- Falling edge
-						--
-						when 0 =>
-							if trigSync(trigBit) = trigFallingEdge then
-								parseState <= 1;
-							end if;
-						
-						--
-						-- Either edge
-						--
-						when 1 =>
-							if trigSync(trigBit) = trigFallingEdge or trigSync(trigBit) = trigRisingEdge then
-								parseState <= 1;
-							end if;
+--				--
+--				-- Wait-for-trigger state
+--				--
+--				when 3 =>
+--					memReadTrig <= '0';
+--					TrigInCase: case(trigType) is
+--						--
+--						-- Falling edge
+--						--
+--						when 0 =>
+--							if trigSync(trigBit) = trigFallingEdge then
+--								parseState <= 1;
+--							end if;
+--						
+--						--
+--						-- Either edge
+--						--
+--						when 1 =>
+--							if trigSync(trigBit) = trigFallingEdge or trigSync(trigBit) = trigRisingEdge then
+--								parseState <= 1;
+--							end if;
+--
+--						--
+--						-- Rising edge
+--						--
+--						when 1 =>
+--							if trigSync(trigBit) = trigRisingEdge then
+--								parseState <= 1;
+--							end if;
+--						when others => parseState <= 1;
+--					end case;
 
-						--
-						-- Rising edge
-						--
-						when 1 =>
-							if trigSync(trigBit) = trigRisingEdge then
-								parseState <= 1;
-							end if;
-						when others => parseState <= 1;
-					end case;
 				when others => null;
 			end case;
 		end if;
