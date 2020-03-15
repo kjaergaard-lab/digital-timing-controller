@@ -21,11 +21,11 @@ classdef TimingController < handle
         SER_PORT_DEFAULT = 'com3';                  %Default serial port of the FPGA
         SER_PORT_BAUDRATE = 115200;                 %Baud rate of the FPGA serial controller
         SER_PORT_BUFFER_SIZE = 2^10;                %Serial port buffer size
-        FPGA_SAMPLE_CLK = 20e6;                     %Controller sample clock, in Hz
+        FPGA_SAMPLE_CLK = 25e6;                     %Controller sample clock, in Hz
         
         FPGA_COMMAND_START = 0;                     %Command to start the wait-for-trigger stage
         FPGA_COMMAND_STOP = 1;                      %Command to stop the sequence
-        FPGA_COMMAND_READ_STATUS = 2;               %Commad to request the controller status
+        FPGA_COMMAND_READ_STATUS = 2;               %Command to request the controller status
         FPGA_COMMAND_READ_MANUAL = 3;               %Command to read current manual values
         FPGA_COMMAND_WRITE_MANUAL = bitshift(1,16); %Command to write manual values
         FPGA_COMMAND_MEM_UPLOAD = bitshift(2,16);   %Command to upload instructions to memory
@@ -149,20 +149,24 @@ classdef TimingController < handle
             v = [];
             for nn=1:tc.NUM_CHANNELS
                 tc.channels(nn).check.sort;
-                t = [t;tc.channels(nn).getTimes];   %#ok
-                v = [v;bitshift(tc.channels(nn).getValues,repmat(tc.channels(nn).getBit,tc.channels(nn).getNumValues+1,1))];    %#ok
+                [t2,v2] = tc.channels(nn).getEvents;
+                t = [t;t2];   %#ok
+%                 v = [v;bitshift(v2,repmat(tc.channels(nn).getBit,numel(v2),1))];    %#ok
+                tmp = [repmat(tc.channels(nn).getBit,numel(v2),1),v2];
+                v = [v;tmp];
             end
             [t,k] = sort(round(t*tc.FPGA_SAMPLE_CLK));
-            v = v(k);
+            v = v(k,:);
             buf = zeros(size(t,1),2,'uint32');
-            buf(1,:) = uint32([t(1),v(1)]);
+            buf(1,:) = uint32([t(1),bitshift(v(1,2),v(1,1)+1,'uint32')]);
             numBuf = 1;
             for nn=2:size(t,1)
                 if t(nn)==t(nn-1)
-                    buf(numBuf,2) = buf(numBuf,2)+uint32(v(nn));
+%                     buf(numBuf,2) = buf(numBuf,2)+uint32(v(nn));
+                    buf(numBuf,2) = bitset(buf(numBuf,2),v(nn,1)+1,v(nn,2),'uint32');
                 else
                     numBuf = numBuf + 1;
-                    buf(numBuf,:) = uint32([t(nn) v(nn)]);
+                    buf(numBuf,:) = uint32([t(nn) bitset(buf(numBuf-1,2),v(nn,1)+1,v(nn,2),'uint32')]);
                 end
             end
             
@@ -206,8 +210,8 @@ classdef TimingController < handle
             fwrite(dev,tc.getDefaults,'uint32');
             fwrite(dev,tc.FPGA_COMMAND_MEM_UPLOAD+size(tc.compiledData,1)-1,'uint32');   %Note the size - 1
             for nn=1:size(tc.compiledData,1)
-                fwrite(dev,uint32(tc.compiledData(nn,1)),'uint8');
                 fwrite(dev,uint32(tc.compiledData(nn,2)),'uint32');
+                fwrite(dev,uint32(tc.compiledData(nn,1)),'uint8');
             end
             fwrite(dev,tc.FPGA_COMMAND_START,'uint32');
         end
@@ -295,6 +299,18 @@ classdef TimingController < handle
             r = fread(tc.ser,1,'uint32');
         end
         
+        function d = readStatus(tc)
+            tc.open;
+            fwrite(tc.ser,tc.FPGA_COMMAND_READ_STATUS,'uint32');
+            while tc.ser.BytesAvailable~=4
+                pause(10e-3);
+            end
+            r = fread(tc.ser,1,'uint32');
+            d.seqEnabled = bitget(r,32);
+            d.seqRunning = bitget(r,31);
+            d.addr = bitand(r,bitcmp(bitshift(3,30),'uint32'));
+        end
+        
         function tc = plot(tc,offset)
             %PLOT Plots all channel sequences
             %
@@ -315,6 +331,33 @@ classdef TimingController < handle
                 end
             end
             hold off;
+            legend(str);
+        end
+        
+        function [t,v] = plotCompiledData(tc,offset)
+            if nargin < 2
+                offset = 0;
+            end
+            t = 0;
+            v = bitget(tc.compiledData(1,2),1:32,'uint32');
+            jj = 2;
+            for nn=2:size(tc.compiledData,1)
+                if tc.compiledData(nn,1)==tc.FPGA_SEQ_DELAY
+                    t(jj,1) = t(jj-1)+double(tc.compiledData(nn,2))/tc.FPGA_SAMPLE_CLK;
+                    v(jj,:) = v(jj-1,:);
+                    jj = jj+1;
+                elseif tc.compiledData(nn,1)==tc.FPGA_SEQ_OUT
+                    t(jj) = t(jj-1);
+                    v(jj,:) = bitget(tc.compiledData(nn,2),1:32,'uint32');
+                    jj = jj+1;
+                end
+            end
+            
+            for nn=1:tc.NUM_CHANNELS
+                str{nn} = sprintf('%d',tc.channels(nn).getBit);
+                plot(t,double(v(:,nn))+(nn-1)*offset,'.-','linewidth',1.5);
+                hold on;
+            end
             legend(str);
         end
         

@@ -27,7 +27,7 @@ classdef SpartanImaging < handle
         probeWidthF                 %Width of the fluorescence imaging pulse
         
         probeShutterDelay           %Delay between probe shutter opening and probe pulse
-        camExp                      %Length of camera trigger on period
+        camDelay                    %Delay between camera trigger high and probe pulse high
         camLoopTime                 %Loop time between absorption images
         repumpProbeWidth            %Width of the repump probe pulse
         repumpProbeDelay            %Delay between start of repump probe pulse and imaging probe pulse
@@ -92,7 +92,7 @@ classdef SpartanImaging < handle
             sp.repumpProbeWidth = 150;
             sp.repumpShutterDelay = 2.5;
             
-            sp.camExp = 0.25;
+            sp.camDelay = 0.25;
             sp.camLoopTime = 30;
             sp.probeShutterDelay = 2.5;
             
@@ -212,7 +212,7 @@ classdef SpartanImaging < handle
             %% First image with atoms
             probe.at(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
             shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').at(probe.last,0);
-            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').at(probe.last,0);
+            camTrig.anchor(onTime,'ms').before(sp.camDelay(idx),1,'ms').at(probe.last,0);
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
@@ -223,7 +223,7 @@ classdef SpartanImaging < handle
             onTime = onTime+sp.camLoopTime(idx);
             probe.at(onTime,sp.enableProbe(idx),'ms').after(width,0,'us');
             shutter.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').at(probe.last,0);
-            camTrig.anchor(onTime,'ms').before(sp.camExp(idx),1,'ms').at(probe.last,0);
+            camTrig.anchor(onTime,'ms').before(sp.camDelay(idx),1,'ms').at(probe.last,0);
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
@@ -232,7 +232,7 @@ classdef SpartanImaging < handle
             
             %% Third image without atoms
             onTime = onTime+sp.camLoopTime(idx);
-            camTrig.at(onTime,1,'ms').before(sp.camExp(idx),1,'ms').sort.after(width,0,'us');
+            camTrig.at(onTime,1,'ms').before(sp.camDelay(idx),1,'ms').sort.after(width,0,'us');
             
         end
         
@@ -293,20 +293,20 @@ classdef SpartanImaging < handle
             probeR = sp.controller.probeRepumpF;
             shutterR = sp.controller.shutterRepumpF;
             %% Zeroeth, throw-away image for Andor iXon camera in frame-transfer mode
-            camTrig.anchor(onTime,'ms').before(sp.ANDOR_FIRST_LOOP_TIME,1,'ms').after(sp.camExp(idx),0,'ms');
+            camTrig.anchor(onTime,'ms').before(sp.ANDOR_FIRST_LOOP_TIME,1,'ms').after(sp.camDelay(idx),0,'ms');
             
             %% First images with atoms
             shutter1.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             shutter2.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             
             probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
-            camTrig.at(probe1.last,0).before(sp.camExp(idx),1,'ms');
+            camTrig.at(probe1.last,0).before(sp.camDelay(idx),1,'ms');
             
             probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
             shutter1.at(probe2.last,0);
             shutter2.at(probe2.last,0);
             
-            camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
+            camTrig.after(delay,1,'ms').after(sp.camDelay(idx),0,'ms');
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
@@ -318,12 +318,12 @@ classdef SpartanImaging < handle
             shutter1.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             shutter2.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
-            camTrig.at(probe1.last,0).before(sp.camExp(idx),1,'ms');
+            camTrig.at(probe1.last,0).before(sp.camDelay(idx),1,'ms');
             
             probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
             shutter1.at(probe2.last,0);
             shutter2.at(probe2.last,0);
-            camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
+            camTrig.after(delay,1,'ms').after(sp.camDelay(idx),0,'ms');
             
             probeR.anchor(onTime,'ms').before(sp.repumpProbeDelay(idx),sp.enableRepump(idx),'ms');
             shutterR.anchor(probeR.last).before(sp.repumpShutterDelay(idx),sp.enableRepump(idx),'ms');
@@ -332,8 +332,8 @@ classdef SpartanImaging < handle
             
             %% Third dark images
             onTime = onTime+delay+sp.camLoopTime(idx);
-            camTrig.at(onTime,0,'ms').before(sp.camExp(idx),1,'ms');
-            camTrig.after(delay,1,'ms').after(sp.camExp(idx),0,'ms');
+            camTrig.at(onTime,0,'ms').before(sp.camDelay(idx),1,'ms');
+            camTrig.after(delay,1,'ms').after(sp.camDelay(idx),0,'ms');
             
         end
         
@@ -378,7 +378,8 @@ classdef SpartanImaging < handle
             %   one configuration is present or to a set of files in dir
             %   sp.file.dir with base-name sp.file.base if more than one
             %   configuration is present.
-            if sp.numConfigs == 1
+            sp.controller.compile;
+            if isempty(sp.numConfigs) || sp.numConfigs == 1
                 sp.controller.open;
                 sp.flexDDSTriggers.upload(sp.controller.ser);
                 sp.controller.upload;
@@ -394,6 +395,8 @@ classdef SpartanImaging < handle
             end
         end
         
+        
+        
         function sp = plot(sp,varargin)
             %PLOT Plots all channel sequences with associated names
             %
@@ -405,6 +408,12 @@ classdef SpartanImaging < handle
             %   same graph but with each channel's sequence offset from the
             %   next by offset
             sp.controller.plot(varargin{:});
+        end
+        
+        function sp = softStart(sp)
+            sp.controller.open;
+            dev = sp.controller.ser;
+            fwrite(dev,hex2dec('ff000000'),'uint32');
         end
         
         
