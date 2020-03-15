@@ -54,7 +54,7 @@ classdef SpartanImaging < handle
     properties(Constant, Hidden=true)
         SER_COM_PORT = 'com3';          %Serial com port, in case different from SpartanImagingController
         ANDOR_FIRST_LOOP_TIME = 30;     %First loop time for the Andor camera in [ms]
-        ANDOR_READ_TIME = 20;           %Read time for the Andor camera in [ms]
+        ANDOR_READ_TIME = 18;           %Read time for the Andor camera in [ms]
         EX_PROP = {'file','controller','flexDDSTriggers'};  %Properties to exclude from variable expansion
     end
     
@@ -298,11 +298,10 @@ classdef SpartanImaging < handle
             %% First images with atoms
             shutter1.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
             shutter2.anchor(onTime,'ms').before(sp.probeShutterDelay(idx),sp.enableProbe(idx),'ms').sort;
-            
             probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
             camTrig.at(probe1.last,0).before(sp.camDelay(idx),1,'ms');
             
-            probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
+            probe2.anchor(probe1.last).before(width1,0,'us').after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
             shutter1.at(probe2.last,0);
             shutter2.at(probe2.last,0);
             
@@ -320,7 +319,7 @@ classdef SpartanImaging < handle
             probe1.at(onTime,sp.enableProbe(idx),'ms').after(width1,0,'us');
             camTrig.at(probe1.last,0).before(sp.camDelay(idx),1,'ms');
             
-            probe2.anchor(probe1.last).after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
+            probe2.anchor(probe1.last).before(width1,0,'us').after(sp.imageDelay(idx),sp.enableProbe(idx),'ms').after(width2,0,'us');
             shutter1.at(probe2.last,0);
             shutter2.at(probe2.last,0);
             camTrig.after(delay,1,'ms').after(sp.camDelay(idx),0,'ms');
