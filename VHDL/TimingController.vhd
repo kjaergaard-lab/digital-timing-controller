@@ -205,8 +205,6 @@ begin
 								parseState <= 1;
 								
 							when INSTR_IN =>
-								waitEnable <= '1';
-								waitForDigitalIn <= '1';
 								trigBit <= to_integer(unsigned(memReadData(3 downto 0)));
 								trigType <= to_integer(unsigned(memReadData(9 downto 8)));
 								parseState <= 3;
@@ -253,7 +251,7 @@ begin
 						--
 						-- Rising edge
 						--
-						when 1 =>
+						when 2 =>
 							if trigSync(1)(trigBit) = trigRisingEdge(1) and trigSync(0)(trigBit) = trigRisingEdge(0) then
 								parseState <= 1;
 							end if;
