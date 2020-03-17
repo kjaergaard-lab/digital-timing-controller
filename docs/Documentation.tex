@@ -4,6 +4,8 @@
 \usepackage{placeins}
 \usepackage{amsmath,amssymb}
 \usepackage[colorlinks=true,citecolor=red]{hyperref}
+\usepackage{siunitx}
+\usepackage{listings}
 
 \usepackage{geometry}
 \geometry{a4paper,margin=1in,portrait}
@@ -14,6 +16,7 @@
 		pre/.style={<-,shorten <=1pt,>=stealth',semithick},
 		post/.style={->,shorten <=1pt,>=stealth',semithick}}
 
+\allowdisplaybreaks
 
 \begin{document}
 \title{Documentation for digital pattern generator-based imaging controller}
@@ -54,8 +57,10 @@ Whereas the previous imaging controller had many different modules, each of whic
 	\label{fg:diagram}
 \end{figure}
 
-\section{Digital Pattern Generator (DPG)}
-\label{sec:dpg}
+\section{Hardware}
+\label{sec:hardware}
+\subsection{Digital Pattern Generator (DPG)}
+\label{ssec:dpg}
 A DPG is simple to understand -- it is a device that stores a list of digital output patterns and the times at which they should be enacted.  In the case of the current DPG, these are stored as a series of 40-bit (5 byte) instructions, where the most-significant byte (MSB) is the type of instruction and bytes 0 to 3 (for a total of 32 bits) are the \emph{data}.  There are currently three types of instructions:
 \begin{enumerate}
 	\item $\mathrm{MSB} = 0\mathrm{x}00$ This instruction tells the DPG to wait for a time equal to \emph{data} sample clock cycles.
@@ -99,10 +104,10 @@ If the current instruction is a digital output instruction, the controller route
 
 If the current instruction is a wait instruction, the FSM reads the wait time from \emph{data} as a delay of $N$ sample clock cycles, where $N$ is a 32-bit unsigned integer.  The FSM proceeds to the ``wait'' state (state 2) and waits for $N-2$ cycles - the $-2$ is necessary to account for the sample period during which the instruction is parsed and the periods during which the counting is done.  By choosing to wait for $N-2$, the delays between updates of the digital output are $N$ sample clock cycles.  Note that the controller cannot wait for 0 cycles, and asking it to wait for 1 cycle will result in it waiting for 2 cycles.  In order to have a delay of 1 cycle between successive updates to the digital output, the user should have two successive digital output instructions rather than separating them by a wait time.
 
-Finally, if the current instruction is a wait for input instruction, the FSM reads the input bit from bits 0 to 3 of \emph{data} corresponding to an unsigned integer from 0 to 7.  The edge type to look for is encoded in bits 8 to 9 with a ``00'' being a falling edge, ``01'' being either a falling or rising edge, and ``10'' being a rising edge.  When the correct edge is detected, the FSM moves to state 1.  An edge type of ``11'' is not used and will immediately move to state 1.  Digital inputs are detected synchronously with the master clock, so any input signal must be high for at least one master clock period (10 ns).  
+Finally, if the current instruction is a wait for input instruction, the FSM reads the input bit from bits 0 to 3 of \emph{data} corresponding to an unsigned integer from 0 to 7.  The edge type to look for is encoded in bits 8 to 9 with a ``00'' being a falling edge, ``01'' being either a falling or rising edge, and ``10'' being a rising edge.  When the correct edge is detected, the FSM moves to state 1.  An edge type of ``11'' is not used and will immediately move to state 1.  Digital inputs are detected synchronously with the master clock, so any input signal must be high for at least one master clock period (10 ns).  Currently, no digital inputs are used, but this should be relatively easy to change in the future if needed.
 
-\subsection{Programming the DPG}
-\label{sec:programming-dpg}
+\subsubsection{Programming the DPG}
+\label{sssec:programming-dpg}
 The DPG is programmed using a relatively simple set of commands which are sent to the FPGA using a serial (UART) connection.  Commands are interpreted least-significant bit (and byte) first.  Some commands set the controller up to read the next command(s) as a numerical parameter, or, in the case of memory uploading, the next series of commands as writes to memory.  A table of commands is given in Table~\ref{tb:commands}
 \begin{table}[htbp]
 	\centering
@@ -118,6 +123,78 @@ The DPG is programmed using a relatively simple set of commands which are sent t
 	\caption{Command options for DPG.  ID is the DPG's serial ID, currently set to $00$.}
 	\label{tb:commands}
 \end{table}
+Status information from the DPG is sent with the two most-significant bits being the value of \verb|seqEnabled| and \verb|seqRunning|, respectively, and the remaining bits represent the address in memory that is currently being accessed.
+
+Uploading instructions to memory is slightly different from other commands.  To upload instructions to memory, one first needs to send the command $0\mathrm{xID}\_02\_xx\_xx$ to the FPGA where $xx\_xx$ is the hexadecimal representation of the number of instructions $N_{\rm instr}-1$ that will be sent to the FPGA, where $N_{\rm instr}$ is the number of instructions.  Currently, the block memory where these instructions reside can handle up to $2^11=2048$ instructions, but one can change that in VHDL if more instructions are necessary.  Obviously with the current encoding scheme the maximum number of instructions that can be stored is $2^16=65536$, although other encoding schemes could be used.  Once the previous command is sent and the FPGA is primed to receive instructions to write to memory, the user must transmit $N_{\rm instr}$ 40-bit instructions in least-significant bit first format, where the least 32 significant bits are the data and the most-significant byte is the instruction type.  A typical set of instructions for programming the DPG could be
+\begin{align}
+\textrm{Stop DPG}\quad\quad&0\mathrm{x}00\_00\_00\_01\notag\\
+\textrm{Prime for receiving manual values}\quad\quad&0\mathrm{x}00\_01\_00\_00\notag\\
+\textrm{Send default values (all 0)}\quad\quad&0\mathrm{x}00\_00\_00\_00\notag\\
+\textrm{Prime for receiving 10 instructions}\quad\quad&0\mathrm{x}00\_02\_00\_09\notag\\
+\textrm{Set all outputs to 0}\quad\quad&0\mathrm{x}01\_00\_00\_00\_00\notag\\
+\textrm{Wait 10 cycles}\quad\quad&0\mathrm{x}00\_00\_00\_00\_0\mathrm{A}\notag\\
+\textrm{Raise bit 0}\quad\quad&0\mathrm{x}01\_00\_00\_00\_01\notag\\
+\textrm{Wait 2 cycles}\quad\quad&0\mathrm{x}00\_00\_00\_00\_02\notag\\
+\textrm{Raise bits 31 and 15}\quad\quad&0\mathrm{x}01\_80\_00\_80\_01\notag\\
+\textrm{Wait 20 cycles}\quad\quad&0\mathrm{x}00\_00\_00\_00\_14\notag\\
+\textrm{Lower bit 31, raise bit 1}\quad\quad&0\mathrm{x}01\_00\_00\_80\_03\notag\\
+\textrm{Wait 1 cycle, lower bit 1}\quad\quad&0\mathrm{x}01\_00\_00\_80\_01\notag\\
+\textrm{Wait for rising edge on input 0}\quad\quad&0\mathrm{x}02\_00\_00\_00\_20\notag\\
+\textrm{Lower all bits}\quad\quad&0\mathrm{x}01\_00\_00\_00\_00\notag\\
+\textrm{Start DPG}\quad\quad&0\mathrm{x}00\_00\_00\_00\notag
+\end{align}
+It is not strictly required that one stop the DPG before uploading instructions, but if one does not then there could potentially be read/write conflicts if the DPG receives a trigger while instructions are being uploaded.  Additionally, if the first instruction changes between uploads and the DPG is \emph{not} stopped beforehand, then the first DPG instruction will be incorrect as it is pre-loaded on receipt of a ``start'' command.
+
+\subsection{FlexDDS trigger system}
+\label{ssec:flexdds}
+The imaging controller is also used to generate triggers for the FlexDDS.  Since we generate several seconds worth of triggers at 200 kHz for three channels, it makes sense to not have these be part of the DPG.  Instead, it is a separate module in the FPGA architecture.  The FlexDDS system has a serial ID of $0\mathrm{x}01$, and serial commands can be found in Table~\ref{tb:flexdds}.
+\begin{table}[htbp]
+	\centering
+	\begin{tabular}{c|c|p{5cm}}
+		Command							&	Action													&	Subsequent command(s)\\\hline
+		$0\mathrm{xID}\_00\_xx\_00$		&	Pulse period for output $0\mathrm{x}xx$.				&	Next 32-bit command is pulse period in FPGA master clock cycles\\\hline
+		$0\mathrm{xID}\_00\_xx\_01$		&	Number of pulses for output $0\mathrm{x}xx$.			&	Next 32-bit command is the number of pulses\\\hline
+	\end{tabular}
+	\caption{Command options for FlexDDS system.  The output (0 to 2) is set with bits 8 to 15 of the initial command.}
+	\label{tb:flexdds}
+\end{table}
+There are three FlexDDS triggers, and each can be addressed individually.  For example, to set the pulse period and number of pulses for output 1 to 5 \si{\micro\second} (200 kHz) and $2\times 10^6$ triggers the user would send
+\begin{align}
+\textrm{Prime for receiving pulse period}\quad\quad&0\mathrm{x}01\_00\_01\_00\notag\\
+\textrm{Set pulse period to 200 kHz (100 MHz master clock)}\quad\quad&0\mathrm{x}00\_00\_01\_\mathrm{F}4\notag\\
+\textrm{Prime for receiving number of pulses}\quad\quad&0\mathrm{x}01\_00\_01\_01\notag\\
+\textrm{Set number of pulses to }2\times10^6\quad\quad&0\mathrm{x}00\_1\mathrm{E}\_84\_80\notag
+\end{align}
+The FlexDDS triggers are started whenever the input trigger signal is raised high.
+
+\subsection{Top-level FPGA architecture}
+\label{ssec:top-fpga}
+There is very little in the top-level module for this FPGA architecture.  One of the main parts is a mapping of signals from the DPG to sensible names: for instance, bit 0 of the DPG output is mapped to the Andor camera trigger, and bit 1 is mapped to the Rb AOM on/off switch.  Note that many signals, such as AOM and shutter on/off signals, have inputs as well, and these are combined with the outputs from the DPG using a simple OR gate.
+
+Another important part is the input trigger synchronization process.  This process takes the asynchronous, external input trigger and an external trigger enable signal, and creates a synchronous internal trigger signal on the rising edge of the external trigger when the enable trigger signal is high.  
+
+Alternatively, to start the controller one can use a ``software trigger'', which is started by sending the command $0\mathrm{x}\mathrm{FF}\_00\_00\_00$ to the FPGA over serial.  This will issue an ``external'' trigger to both the FlexDDS system and the DPG simultaneously, and it can be very useful for testing.
+
+\section{Software}
+\label{sec:software}
+Since programming the imaging controller uses a very simple serial interface, it should be relatively straightforward to write software in the user's preferred language that they can use to program the device.  A suite of programs has been written in MATLAB, as this is a common language in the lab.  The DPG is controlled via the two generic classes \emph{TimingController} and \emph{TimingControllerChannel}, while a more specific class for the current imaging controller is \emph{SpartanImagingController}.  The latter class is a subclass of \emph{TimingController} and mainly has named properties that are mapped to particular digital output bits.  
+
+A slightly different class, called \emph{SpartanImaging}, provides a wrapper for an instance of \emph{SpartanImagingController} as well as an associated class for controlling the FlexDDS trigger system using the class \emph{SpartanFlexDDSTriggerSystem}.  It also has an instance of \emph{StatePrepPulses} which provides an interface for creating state-preparation pulses (microwave and radio-frequency).  
+
+The MATLAB code has been commented so users should be able to figure out how to work the software by reading the comments and looking at examples.  Briefly, though, the \emph{TimingControllerChannel} provides the function \emph{at} that takes in a time, a value, and a time unit (default is seconds) and creates an ``event'' corresponding the change of state of that channel to \emph{value} at the specified time.  Additional functions \emph{before} and \emph{after} (with the same arguments as \emph{at}) can be used when chaining events together.  For instance, suppose one has a instance of \emph{SpartanImagingController} named \verb|sp|, and one wants to switch on the Rb probe AOM and shutter at a given time and then turn them off some time later (as would be done for imaging).  Possible code would be:
+\begin{lstlisting}[language=matlab]
+sp.probeRb.at(50,1,'ms').after(15,0,'us');
+sp.shutterRb.anchor(50,'ms').before(2.5,1,'ms').at(sp.probeRb.last,0);
+\end{lstlisting}
+This code uses a number of \emph{TimingControllerChannel} functions.  In the first line, the Rb probe signal is raised high at 50 ms and then 15 \si{\micro\second} later it is lowered.  The shutter signal is slightly more complicated -- we want it to go high 2.5 ms before the probe signal (so that the shutter has sufficient time to open) and then close when the probe signal goes low.  We can use the \emph{anchor} method to set the internal channel property \verb|lastTime| to 50 ms without adding an event.  Then we can use the before function to specify an event prior to the last time added.  Note that \verb|lastTime| is the last added time, but not the last time in the sequence -- events are not sorted after each addition.  Finally, we can use the function \verb|last| to get the last time written to the probe signal and use that for specifying when the shutter signal should be lowered.  Once times are written to the channel as events they are always in seconds, so no unit is required.  The channel sequences that a user creates can be plotted using the \emph{plot} method.
+
+The \emph{SpartanImaging} class provides familiar properties, such as cross-beam on time and time-of-flight, for the creation of standard imaging sequences.  Simply set the properties as was done in previous iterations of the controller and it should create an equivalent imaging sequence.  The \emph{SpartanImaging} class also has an \verb|expandVariables| method, just like the previous \emph{spartan} class, which means that one can specify one or more properties as vectors and the class will expand other properties to the maximum length.  
+
+Once the properties are set, to create a basic imaging sequence one needs to run the functions
+\begin{lstlisting}[language=matlab]
+si.expandVariables.makeSequence.upload;
+\end{lstlisting}
+where \verb|si| is an instance of \emph{SpartanImaging}.  This will expand the variables, create a default sequence, and then upload that sequence to the controller or create binary files (in the case of multiple sequences).  If you want to customize the sequence, you need to do so after \verb|makeSequence| because it resets the channels and the controller.  Otherwise, you can ignore \verb|makeSequence| altogether and create a sequence from scratch.  You can take a look at the total sequence using \verb|si.plot| which will plot all channels where there are events on the same plot.  This can be crowded, so you can add an offset between each plot using \verb|si.plot(offset)| where \verb|offset| is the offset between each channel.
 
 
 
