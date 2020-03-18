@@ -132,7 +132,7 @@ classdef TimingControllerChannel < handle
                 ch.numValues = N;
                 ch.lastTime = time;
             else
-                warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
+%                 warning('Value %d at time %.3g is being replaced',ch.values(idx),ch.times(idx));
                 ch.values(idx,1) = value;
                 ch.times(idx,1) = time;
                 ch.lastTime = time;
@@ -227,7 +227,14 @@ classdef TimingControllerChannel < handle
         function ch = check(ch)
             %CHECK Checks times to make sure that they are all >= 0
             %
-            %   ch = ch.check checks the event times
+            %   Also checks to see if unique events actually occur, and
+            %   removes sequence if nothing happens
+            %
+            %   ch = ch.check checks the event times and removes sequence
+            %   if nothing happens
+            if numel(unique(ch.values))==1
+                ch.reset;
+            end
             if any(ch.times<0)
                 error('All times must be greater than 0 (no acausal events)!');
             end
