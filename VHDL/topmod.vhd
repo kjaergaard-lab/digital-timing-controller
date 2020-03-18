@@ -159,6 +159,8 @@ signal dataFlag, dataFlag0, dataFlag1, dataFlagFF	:	std_logic_vector(1 downto 0)
 ------------------------------------------------------------------------------------
 signal trigSync			:	std_logic_vector(1 downto 0)	:=	"00";
 signal trig, startTrig	:	std_logic	:=	'0';
+constant trigHoldOff	:	integer	:=	100000000;	--1 s at 100 MHz
+signal trigCount		:	integer	:=	0;
 
 signal dOut	:	std_logic_vector(31 downto 0)	:=	(others => '0');
 
@@ -208,13 +210,23 @@ ledvec <= cmdData(ledvec'length-1 downto 0);
 InputTrigSync: process(clk) is
 begin
 	if rising_edge(clk) then
-		trigSync <= (trigSync(0) & trigIn);
-		if (((trigSync(0) & trigIn) = "01") and trigEnable = '1') or startTrig = '1' then
+		trigSync <= (trigSync(0) & (trigIn and trigEnable));
+	end if;
+end process;
+
+SeqTrigTiming: process(clk) is
+begin
+	if rising_edge(clk) then
+		if (trigSync = "01" or startTrig = '1') and trigCount = 0 then
 			trig <= '1';
+			trigCount <= trigCount + 1;
+		elsif trigCount > 0 and trigCount < trigHoldOff then
+			trig <= '0';
+			trigCount <= trigCount + 1;
 		else
 			trig <= '0';
+			trigCount <= 0;
 		end if;
-		
 	end if;
 end process;
 	
