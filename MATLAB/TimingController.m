@@ -336,6 +336,7 @@ classdef TimingController < handle
             end
             hold off;
             legend(str);
+            xlabel('Time [s]');
         end
         
         function [t,v] = plotCompiledData(tc,offset)
