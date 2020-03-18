@@ -107,6 +107,7 @@ classdef SpartanImagingController < TimingController
             end
             hold off;
             legend(str);
+            xlabel('Time [s]');
         end
     
     end
