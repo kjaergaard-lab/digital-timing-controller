@@ -7,9 +7,10 @@ classdef SpartanFlexDDSTriggerSystem < handle
     
     properties(Constant)
         ID = 1;                 %ID of this subsystem
-        SET_NUM_PULSE = 0;      %Command for setting the number of pulses
-        SET_PULSE_PERIOD = 1;   %Command for setting the pulse period
+        SET_NUM_PULSE = 1;      %Command for setting the number of pulses
+        SET_PULSE_PERIOD = 0;   %Command for setting the pulse period
         NUM_OUTPUTS = 3;        %Number of FlexDDS trigger outputs
+        COMMAND_RESET = 2;
         CLK = 100e6;            %FPGA clock frequency
     end
     
@@ -22,12 +23,15 @@ classdef SpartanFlexDDSTriggerSystem < handle
             dds.reset;
         end
         
-        function dds = reset(dds)
+        function dds = reset(dds,dev)
             %RESET Resets parameters to defaults
             %
             %   dds = dds.reset resets parameters
             dds.trigFreq = 200e3*ones(dds.NUM_OUTPUTS,1);
             dds.numTriggers = 10*dds.trigFreq;
+            if nargin==2
+                fwrite(dev,bitshift(dds.ID,24)+dds.COMMAND_RESET,'uint32');
+            end
         end
         
         function dds = upload(dds,dev)
@@ -35,10 +39,10 @@ classdef SpartanFlexDDSTriggerSystem < handle
             %
             %   dds = dds.upload(dev) uploads parameters to device dev
             for nn=1:dds.NUM_OUTPUTS
-                fwrite(dev,bitshift(dds.ID,24)+bitshift(nn,8)+dds.SET_NUM_PULSE,'uint32');
-                fwrite(dev,dds.numTriggers(nn),'uint32');
-                fwrite(dev,bitshift(dds.ID,24)+bitshift(nn,8)+dds.SET_PULSE_PERIOD,'uint32');
-                fwrite(dev,round(dds.CLK/dds.trigFreq(nn)),'uint32');
+                fwrite(dev,bitshift(dds.ID,24)+bitshift(nn-1,8)+dds.SET_NUM_PULSE,'uint32');
+                fwrite(dev,uint32(dds.numTriggers(nn)),'uint32');
+                fwrite(dev,bitshift(dds.ID,24)+bitshift(nn-1,8)+dds.SET_PULSE_PERIOD,'uint32');
+                fwrite(dev,uint32(round(dds.CLK/dds.trigFreq(nn))),'uint32');
             end
         end
         
