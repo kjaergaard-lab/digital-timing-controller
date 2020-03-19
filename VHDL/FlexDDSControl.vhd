@@ -70,7 +70,10 @@ begin
 				PulseSettings: case cmdData(7 downto 0) is
 					when X"00" => getParam(numFlag,numData,period,cmdData(15 downto 8));		--FlexDDS period for triggers
 					when X"01" => getParam(numFlag,numData,numPulses,cmdData(15 downto 8));		--FlexDDS number of trigger pulses
-						
+					when X"02" =>
+						period <= (0=>500,1=>500,2=>500);
+						pulseWidth <= (0=>250,1=>250,2=>250);
+						numPulses <= (0=>2000000,1=>2000000,2=>2000000);
 					when others => null;
 				end case;
 			end if;
