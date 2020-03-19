@@ -3,8 +3,8 @@ function varargout = FPGA_Program
 sp = SpartanImaging;
 
 %% Set imaging parameters
-sp.probeType = 'Rb';
-sp.imageDelay = 0.16;
+sp.probeType = 'RbRb';
+sp.imageDelay = 3;
 sp.enableProbe = 1;
 sp.enableRepump = 1;
 
@@ -44,7 +44,7 @@ sp.repumpShutterDelay = 2.5;
 
 
 %% Calculate values, check for errors, and write the configuration
-sp.expandVariables.makeSequence;
+sp.checkValues.expandVariables.makeSequence;
 sp.upload;
 
 %% Return variables
