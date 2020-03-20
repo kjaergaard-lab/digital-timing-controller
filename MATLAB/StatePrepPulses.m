@@ -79,7 +79,11 @@ classdef StatePrepPulses < handle
                 v = obj.pulses(nn);
                 names = fieldnames(v);
                 for mm = 1:length(names)
-                    N = numel(v.(names{mm}));
+                    if ischar(v.(names{mm}))
+                        N = 1;
+                    else
+                        N = numel(v.(names{mm}));
+                    end
                     if N>r
                         r = N;
                     end
@@ -128,10 +132,10 @@ classdef StatePrepPulses < handle
                 switch upper(pulseType)
                     case 'RB'
                         mw.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
-                        pt.at(p.start(idx),0,'ms').after(p.duration(idx),0,'ms');
+                        pt.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
                     case 'K'
                         mw.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
-                        pt.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
+                        pt.at(p.start(idx),0,'ms').after(p.duration(idx),0,'ms');
                     case 'RF'
                         rf.at(p.start(idx),1,'ms').after(p.duration(idx),0,'ms');
                     otherwise

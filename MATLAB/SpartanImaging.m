@@ -67,8 +67,8 @@ classdef SpartanImaging < handle
             %   sp = SpartanImaging constructs SpartanImaging object sp 
             %   with default values
             sp.reset;
-%             sp.file.dir = 'C:\Users\nkgroup.PX\Documents\FPGA Files\';
-            sp.file.dir = 'FPGA Files\';
+            sp.file.dir = 'C:\Users\nkgroup.PX\Documents\FPGA Files\';
+%             sp.file.dir = 'FPGA Files\';
             sp.file.base = 'FPGA';
         end
         
