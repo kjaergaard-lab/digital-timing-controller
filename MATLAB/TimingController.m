@@ -102,6 +102,13 @@ classdef TimingController < handle
             end
         end
         
+        function delete(sv)
+            %DELETE Deletes the timing controller object
+            %   DELETE calls the TimingController.close() function to close 
+            %   the serial connection
+            sv.close;
+        end
+        
         %%
         function tc = reset(tc)
             %RESET Resets the TimingController channels to their default

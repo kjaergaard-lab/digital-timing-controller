@@ -72,6 +72,16 @@ classdef SpartanImaging < handle
             sp.file.base = 'FPGA';
         end
         
+        function sp = open(sp)
+            %OPEN Opens a serial port associated with the controller
+            sp.controller.open;
+        end
+        
+        function sp = close(sp)
+            %Close Closes a serial port associated with the controller
+            sp.controller.close;
+        end
+        
         function sp = reset(sp)
             %RESET Resets properties to their defaults.
             %
